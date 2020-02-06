@@ -1,9 +1,9 @@
-use std::str::{Chars, FromStr};
+use std::str::{Chars};
 
 use crate::tokens::{Token, TokenType};
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ScanningError {
     error: String,
     line_number: usize,
@@ -20,9 +20,6 @@ impl ScanningError {
 pub struct Scanner<'a> {
     // might wanna make this IntoIter<char> instead so we own it and don't have to deal with lifetimes
     source: Box<Chars<'a>>,
-    start: usize, // first char in the current lexeme
-    // NOTE be careful about unicode with these start and current offsets?!?!?
-    current: usize, // where we are in scannnig the current lexeme
     current_line: usize,
 
     tokens: Vec<Token>,
@@ -33,8 +30,6 @@ impl<'a> Scanner<'a> {
         let source = Box::new(code.chars());
         Scanner {
             source: source,
-            start: 0,
-            current: 0,
             current_line: 1,
             tokens: Vec::new(),
         }
@@ -45,7 +40,7 @@ impl<'a> Scanner<'a> {
         loop {
             let chr = match self.source.next() {
                 Some(chr) => chr,
-                None => return Err(ScanningError::new("Unterinated string literal".to_string(), self.current_line)),
+                None => return Err(ScanningError::new("Unterminated string literal".to_string(), self.current_line)),
             };
             match chr {
                 '"' => break,
@@ -60,8 +55,6 @@ impl<'a> Scanner<'a> {
     /// An Ok(None) means that we parsed ok but we have nothing to return, e.g. \n or \t.
     /// An Err(ScanningError) means there was a scanning error
     fn scan_token(&mut self) -> Result<Option<Token>, ScanningError> {
-        // we can string-index if we use ascii, otherwise strings can have variable
-        // chars and therefore we need an iterator to get the nth char in the string in Rust
         let chr = match self.source.next() {
             Some(chr) => chr,
             None => return Ok(Some(Token::new(TokenType::Eof, self.current_line))),
@@ -81,10 +74,9 @@ impl<'a> Scanner<'a> {
                 self.current_line += 1;
                 Ok(None)
             },
-            '\r' => Ok(None),
-            '\t' => Ok(None),
-            ' ' => Ok(None),
+            '\r' | '\t' | ' ' => Ok(None),
             // must be a variable, keyword, etc
+            // TODO change this? Return Err for unexpected token?
             other_chr => {
                 Ok(None)
             },
@@ -150,7 +142,7 @@ mod tests {
         assert_eq!(expected_token_stream, actual_token_stream);
     }
     #[test]
-    fn test_basic_lexing_with_multiple_lines() {
+    fn test_with_multiple_lines() {
         let input = r#"
             "hi"
             "there"
@@ -165,5 +157,52 @@ mod tests {
             Token::new(TokenType::RightBrace, 3),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
+    }
+
+    #[test]
+    fn test_basic_assignment() {
+        let input = r#"
+            var a = 1 + 2;
+            var b = a * 5;
+            var c = b - a;
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::Var, 1),
+            Token::new(TokenType::Identifier("a".to_string()), 1),
+            Token::new(TokenType::Equal, 1),
+            Token::new(TokenType::Number(1.0), 1),
+            Token::new(TokenType::Plus, 1),
+            Token::new(TokenType::Number(2.0), 1),
+            Token::new(TokenType::Semicolon, 1),
+
+            Token::new(TokenType::Var, 2),
+            Token::new(TokenType::Identifier("b".to_string()), 2),
+            Token::new(TokenType::Equal, 2),
+            Token::new(TokenType::Identifier("a".to_string()), 2),
+            Token::new(TokenType::Star, 2),
+            Token::new(TokenType::Number(5.0), 2),
+            Token::new(TokenType::Semicolon, 2),
+
+            Token::new(TokenType::Var, 3),
+            Token::new(TokenType::Identifier("c".to_string()), 3),
+            Token::new(TokenType::Equal, 3),
+            Token::new(TokenType::Identifier("a".to_string()), 3),
+            Token::new(TokenType::Minus, 3),
+            Token::new(TokenType::Identifier("b".to_string()), 3),
+            Token::new(TokenType::Semicolon, 3),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
+    }
+
+    #[test]
+    fn test_fails_with_scanning_error() {
+        let input = r#"
+            var bla = 42;
+            "foobar
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan();
+        let err = actual_token_stream.expect_err("Should have told us there was an error");
+        assert_eq!(err, ScanningError::new("Unterminated string literal".to_string(), 2));
     }
 }
