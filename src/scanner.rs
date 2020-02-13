@@ -1,4 +1,4 @@
-use std::str::{Chars};
+use std::vec::IntoIter;
 
 use crate::tokens::{Token, TokenType};
 
@@ -17,17 +17,16 @@ impl ScanningError {
     }
 }
 
-pub struct Scanner<'a> {
-    // might wanna make this IntoIter<char> instead so we own it and don't have to deal with lifetimes
-    source: Box<Chars<'a>>,
+pub struct Scanner {
+    source: IntoIter<char>,
     current_line: usize,
 
     tokens: Vec<Token>,
 }
 
-impl<'a> Scanner<'a> {
-    pub fn new(code: &'a str) -> Self {
-        let source = Box::new(code.chars());
+impl Scanner {
+    pub fn new(code: &str) -> Self {
+        let source = code.chars().collect::<Vec<_>>().into_iter();
         Scanner {
             source: source,
             current_line: 1,
@@ -76,10 +75,7 @@ impl<'a> Scanner<'a> {
             },
             '\r' | '\t' | ' ' => Ok(None),
             // must be a variable, keyword, etc
-            // TODO change this? Return Err for unexpected token?
-            other_chr => {
-                Ok(None)
-            },
+            other => Err(ScanningError::new(format!("Unexpected token {}", other), self.current_line)),
         }
     }
 
