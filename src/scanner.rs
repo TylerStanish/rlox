@@ -1,3 +1,4 @@
+use std::iter::Peekable;
 use std::vec::IntoIter;
 
 use crate::tokens::{Token, TokenType};
@@ -18,7 +19,7 @@ impl ScanningError {
 }
 
 pub struct Scanner {
-    source: IntoIter<char>,
+    source: Peekable<IntoIter<char>>,
     current_line: usize,
 
     tokens: Vec<Token>,
@@ -26,7 +27,7 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(code: &str) -> Self {
-        let source = code.chars().collect::<Vec<_>>().into_iter();
+        let source = code.chars().collect::<Vec<_>>().into_iter().peekable();
         Scanner {
             source: source,
             current_line: 1,
@@ -50,6 +51,71 @@ impl Scanner {
         Ok(Token::new(TokenType::StringLiteral(string.iter().collect()), self.current_line))
     }
 
+    /// This can be a single-line comment, or division
+    /// operator.
+    fn parse_slash(&mut self) -> Result<Option<Token>, ScanningError> {
+        let chr = match self.source.peek() {
+            Some(chr) => chr,
+            None => return Err(ScanningError::new("Dangling '/'".to_string(), self.current_line)),
+        };
+        match chr {
+            '/' => {
+                // single-line comment; go until \n or EOF (i.e. when 'while let' no longer matches Some(chr))
+                while let Some(chr) = self.source.next() {
+                    if chr == '\n' {
+                        break
+                    }
+                }
+                Ok(None)
+            },
+            _ => Ok(Some(Token::new(TokenType::Slash, self.current_line)))
+        }
+    }
+
+    fn parse_exclamation(&mut self) -> Result<Option<Token>, ScanningError> {
+        let chr = match self.source.peek() {
+            Some(chr) => chr,
+            None => return Err(ScanningError::new("Dangling '!'".to_string(), self.current_line)),
+        };
+        match chr {
+            '=' => Ok(Some(Token::new(TokenType::BangEqual, self.current_line))),
+            _ => Ok(Some(Token::new(TokenType::Bang, self.current_line)))
+        }
+    }
+
+    fn parse_equals(&mut self) -> Result<Option<Token>, ScanningError> {
+        let chr = match self.source.peek() {
+            Some(chr) => chr,
+            None => return Err(ScanningError::new("Dangling '='".to_string(), self.current_line)),
+        };
+        match chr {
+            '=' => Ok(Some(Token::new(TokenType::EqualEqual, self.current_line))),
+            _ => Ok(Some(Token::new(TokenType::Equal, self.current_line)))
+        }
+    }
+
+    fn parse_greater(&mut self) -> Result<Option<Token>, ScanningError> {
+        let chr = match self.source.peek() {
+            Some(chr) => chr,
+            None => return Err(ScanningError::new("Dangling '>'".to_string(), self.current_line)),
+        };
+        match chr {
+            '=' => Ok(Some(Token::new(TokenType::LessEqual, self.current_line))),
+            _ => Ok(Some(Token::new(TokenType::Less, self.current_line)))
+        }
+    }
+
+    fn parse_less(&mut self) -> Result<Option<Token>, ScanningError> {
+        let chr = match self.source.peek() {
+            Some(chr) => chr,
+            None => return Err(ScanningError::new("Dangling '<'".to_string(), self.current_line)),
+        };
+        match chr {
+            '=' => Ok(Some(Token::new(TokenType::GreaterEqual, self.current_line))),
+            _ => Ok(Some(Token::new(TokenType::Greater, self.current_line)))
+        }
+    }
+
     /// An Ok(Some(tok)) means we parsed ok and have a token.
     /// An Ok(None) means that we parsed ok but we have nothing to return, e.g. \n or \t.
     /// An Err(ScanningError) means there was a scanning error
@@ -63,7 +129,17 @@ impl Scanner {
             ')' => Ok(Some(Token::new(TokenType::RightParen, self.current_line))),
             '{' => Ok(Some(Token::new(TokenType::LeftBrace, self.current_line))),
             '}' => Ok(Some(Token::new(TokenType::RightBrace, self.current_line))),
-            '!' => Ok(Some(Token::new(TokenType::Bang, self.current_line))),
+            ',' => Ok(Some(Token::new(TokenType::Comma, self.current_line))),
+            '.' => Ok(Some(Token::new(TokenType::Dot, self.current_line))),
+            '-' => Ok(Some(Token::new(TokenType::Minus, self.current_line))),
+            '+' => Ok(Some(Token::new(TokenType::Plus, self.current_line))),
+            ';' => Ok(Some(Token::new(TokenType::Semicolon, self.current_line))),
+            '/' => self.parse_slash(),
+            '*' => Ok(Some(Token::new(TokenType::Star, self.current_line))),
+            '!' => self.parse_exclamation(),
+            '=' => self.parse_equals(),
+            '<' => self.parse_less(),
+            '>' => self.parse_greater(),
             '"' => match self.parse_string_literal() {
                 Ok(tok) => Ok(Some(tok)),
                 Err(e) => Err(e),
