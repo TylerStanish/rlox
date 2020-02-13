@@ -72,47 +72,14 @@ impl Scanner {
         }
     }
 
-    fn parse_exclamation(&mut self) -> Result<Option<Token>, ScanningError> {
+    fn parse_lookahead_equal(&mut self, curr_char: char, single: TokenType, single_with_equals: TokenType) -> Result<Option<Token>, ScanningError> {
         let chr = match self.source.peek() {
             Some(chr) => chr,
-            None => return Err(ScanningError::new("Dangling '!'".to_string(), self.current_line)),
+            None => return Err(ScanningError::new(format!("Dangling {}", curr_char).to_string(), self.current_line)),
         };
         match chr {
-            '=' => Ok(Some(Token::new(TokenType::BangEqual, self.current_line))),
-            _ => Ok(Some(Token::new(TokenType::Bang, self.current_line)))
-        }
-    }
-
-    fn parse_equals(&mut self) -> Result<Option<Token>, ScanningError> {
-        let chr = match self.source.peek() {
-            Some(chr) => chr,
-            None => return Err(ScanningError::new("Dangling '='".to_string(), self.current_line)),
-        };
-        match chr {
-            '=' => Ok(Some(Token::new(TokenType::EqualEqual, self.current_line))),
-            _ => Ok(Some(Token::new(TokenType::Equal, self.current_line)))
-        }
-    }
-
-    fn parse_greater(&mut self) -> Result<Option<Token>, ScanningError> {
-        let chr = match self.source.peek() {
-            Some(chr) => chr,
-            None => return Err(ScanningError::new("Dangling '>'".to_string(), self.current_line)),
-        };
-        match chr {
-            '=' => Ok(Some(Token::new(TokenType::LessEqual, self.current_line))),
-            _ => Ok(Some(Token::new(TokenType::Less, self.current_line)))
-        }
-    }
-
-    fn parse_less(&mut self) -> Result<Option<Token>, ScanningError> {
-        let chr = match self.source.peek() {
-            Some(chr) => chr,
-            None => return Err(ScanningError::new("Dangling '<'".to_string(), self.current_line)),
-        };
-        match chr {
-            '=' => Ok(Some(Token::new(TokenType::GreaterEqual, self.current_line))),
-            _ => Ok(Some(Token::new(TokenType::Greater, self.current_line)))
+            '=' => Ok(Some(Token::new(single_with_equals, self.current_line))),
+            _ => Ok(Some(Token::new(single, self.current_line))),
         }
     }
 
@@ -136,10 +103,10 @@ impl Scanner {
             ';' => Ok(Some(Token::new(TokenType::Semicolon, self.current_line))),
             '/' => self.parse_slash(),
             '*' => Ok(Some(Token::new(TokenType::Star, self.current_line))),
-            '!' => self.parse_exclamation(),
-            '=' => self.parse_equals(),
-            '<' => self.parse_less(),
-            '>' => self.parse_greater(),
+            '!' => self.parse_lookahead_equal('!', TokenType::Bang, TokenType::BangEqual),
+            '=' => self.parse_lookahead_equal('=', TokenType::Equal, TokenType::EqualEqual),
+            '<' => self.parse_lookahead_equal('<', TokenType::Less, TokenType::LessEqual),
+            '>' => self.parse_lookahead_equal('>', TokenType::Greater, TokenType::GreaterEqual),
             '"' => match self.parse_string_literal() {
                 Ok(tok) => Ok(Some(tok)),
                 Err(e) => Err(e),
