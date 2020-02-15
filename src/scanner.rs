@@ -83,6 +83,70 @@ impl Scanner {
         }
     }
 
+    fn parse_number(&mut self, curr_char: char) -> Result<Option<Token>, ScanningError> {
+        let mut string = vec![curr_char];
+        while let Some(chr) = self.source.peek() {
+            if *chr != '.' && (*chr < '0' || *chr > '9') {
+                break
+            }
+            string.push(*chr);
+            self.source.next();
+        }
+        // parse string
+        let s: String = string.into_iter().collect();
+        let num: f64 = match s.parse() {
+            Ok(num) => num,
+            Err(_) => return Err(ScanningError::new("Badly formed number".to_string(), self.current_line)),
+        };
+        Ok(Some(Token::new(TokenType::Number(num), self.current_line)))
+    }
+
+    /// checks if a string is a keyword, or just an identifier
+    fn identifier_or_keyword(&self, s: &str) -> Token {
+        match s {
+            "and"    => Token::new(TokenType::And, self.current_line),
+            "class"  => Token::new(TokenType::Class, self.current_line),
+            "else"   => Token::new(TokenType::Else, self.current_line),
+            "false"  => Token::new(TokenType::False, self.current_line),
+            "fun"    => Token::new(TokenType::Fun, self.current_line),
+            "for"    => Token::new(TokenType::For, self.current_line),
+            "if"     => Token::new(TokenType::If, self.current_line),
+            "nil"    => Token::new(TokenType::Nil, self.current_line),
+            "or"     => Token::new(TokenType::Or, self.current_line),
+            "print"  => Token::new(TokenType::Print, self.current_line),
+            "return" => Token::new(TokenType::Return, self.current_line),
+            "super"  => Token::new(TokenType::Super, self.current_line),
+            "this"   => Token::new(TokenType::This, self.current_line),
+            "true"   => Token::new(TokenType::True, self.current_line),
+            "var"    => Token::new(TokenType::Var, self.current_line),
+            "while"  => Token::new(TokenType::While, self.current_line),
+            identifier => Token::new(TokenType::Identifier(identifier.to_string()), self.current_line)
+        }
+    }
+
+    fn parse_identifier_or_keyword(&mut self, curr_char: char) -> Result<Option<Token>, ScanningError> {
+        let mut string = vec![curr_char];
+        // while we equal _, a-z, A-Z, or 0-9 we want to add to the string
+        while let Some(chr) = self.source.peek() {
+            if *chr != '_' && (*chr < 'a' || *chr > 'z') && (*chr < 'A' || *chr > 'Z') && (*chr < '0' || *chr > '9') {
+                break;
+            }
+            string.push(*chr);
+            self.source.next();
+        }
+        return Ok(Some(self.identifier_or_keyword(string.into_iter().collect::<String>().as_ref())))
+    }
+
+    fn parse_other(&mut self, curr_char: char) -> Result<Option<Token>, ScanningError> {
+        if curr_char >= '0' && curr_char <= '9' {
+            return self.parse_number(curr_char);
+        }
+        if (curr_char >= 'A' && curr_char <= 'Z') || (curr_char >= 'a' && curr_char <= 'z') || (curr_char == '_') {
+            return self.parse_identifier_or_keyword(curr_char);
+        }
+        Err(ScanningError::new(format!("Unexpected token {}", curr_char), self.current_line))
+    }
+
     /// An Ok(Some(tok)) means we parsed ok and have a token.
     /// An Ok(None) means that we parsed ok but we have nothing to return, e.g. \n or \t.
     /// An Err(ScanningError) means there was a scanning error
@@ -97,6 +161,7 @@ impl Scanner {
             '{' => Ok(Some(Token::new(TokenType::LeftBrace, self.current_line))),
             '}' => Ok(Some(Token::new(TokenType::RightBrace, self.current_line))),
             ',' => Ok(Some(Token::new(TokenType::Comma, self.current_line))),
+            // don't need to consider numbers like '.5' because we don't allow that
             '.' => Ok(Some(Token::new(TokenType::Dot, self.current_line))),
             '-' => Ok(Some(Token::new(TokenType::Minus, self.current_line))),
             '+' => Ok(Some(Token::new(TokenType::Plus, self.current_line))),
@@ -117,8 +182,8 @@ impl Scanner {
                 Ok(None)
             },
             '\r' | '\t' | ' ' => Ok(None),
-            // must be a variable, keyword, etc
-            other => Err(ScanningError::new(format!("Unexpected token {}", other), self.current_line)),
+            // must be a variable, keyword, or number
+            other => self.parse_other(other),
         }
     }
 
@@ -142,7 +207,11 @@ impl Scanner {
 
 
 mod tests {
+    #[cfg(test)]
     use super::*;
+    #[cfg(test)]
+    use pretty_assertions::{assert_eq};
+
     #[test]
     fn test_string_literal_parsing() {
         let input = r#"
@@ -226,9 +295,9 @@ mod tests {
             Token::new(TokenType::Var, 3),
             Token::new(TokenType::Identifier("c".to_string()), 3),
             Token::new(TokenType::Equal, 3),
-            Token::new(TokenType::Identifier("a".to_string()), 3),
-            Token::new(TokenType::Minus, 3),
             Token::new(TokenType::Identifier("b".to_string()), 3),
+            Token::new(TokenType::Minus, 3),
+            Token::new(TokenType::Identifier("a".to_string()), 3),
             Token::new(TokenType::Semicolon, 3),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
@@ -243,5 +312,38 @@ mod tests {
         let actual_token_stream = Scanner::new(input).scan();
         let err = actual_token_stream.expect_err("Should have told us there was an error");
         assert_eq!(err, ScanningError::new("Unterminated string literal".to_string(), 2));
+    }
+
+    #[test]
+    fn test_basic_keyword() {
+        let input = r#"
+            class B {}
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::Class, 1),
+            Token::new(TokenType::Identifier("B".to_string()), 1),
+            Token::new(TokenType::LeftBrace, 1),
+            Token::new(TokenType::RightBrace, 1),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
+    }
+
+    #[test]
+    fn test_scanner_breaks_up_on_newline() {
+        let input = r#"
+            var abc = 123
+            456;
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::Var, 1),
+            Token::new(TokenType::Identifier("abc".to_string()), 1),
+            Token::new(TokenType::Equal, 1),
+            Token::new(TokenType::Number(123.0), 1),
+            Token::new(TokenType::Number(456.0), 2),
+            Token::new(TokenType::Semicolon, 2),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
     }
 }
