@@ -346,4 +346,44 @@ mod tests {
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
+
+    #[test]
+    fn test_identifiers_with_numbers_are_identifiers() {
+        let input = r#"
+            var abc1 = 123
+            var abc42def = 123
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::Var, 1),
+            Token::new(TokenType::Identifier("abc1".to_string()), 1),
+            Token::new(TokenType::Equal, 1),
+            Token::new(TokenType::Number(123.0), 1),
+            Token::new(TokenType::Var, 2),
+            Token::new(TokenType::Identifier("abc42def".to_string()), 2),
+            Token::new(TokenType::Equal, 2),
+            Token::new(TokenType::Number(123.0), 2),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
+    }
+
+    #[test]
+    fn test_identifiers_between_non_whitespace_are_identifiers() {
+        let input = r#"
+            var abc1=123
+            var abc42def=123
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::Var, 1),
+            Token::new(TokenType::Identifier("abc1".to_string()), 1),
+            Token::new(TokenType::Equal, 1),
+            Token::new(TokenType::Number(123.0), 1),
+            Token::new(TokenType::Var, 2),
+            Token::new(TokenType::Identifier("abc42def".to_string()), 2),
+            Token::new(TokenType::Equal, 2),
+            Token::new(TokenType::Number(123.0), 2),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
+    }
 }
