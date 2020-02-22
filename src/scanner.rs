@@ -45,6 +45,14 @@ impl Scanner {
             match chr {
                 '"' => break,
                 // TODO handle double-quote escaping too
+                '\\' => match self.source.next() {
+                    Some(escaped) => match escaped {
+                        '\\' => string.push('\\'),
+                        '"' => string.push('"'),
+                        other => return Err(ScanningError::new(format!("Unrecognized escape sequence {}", other), self.current_line)),
+                    },
+                    None => return Err(ScanningError::new("Unterminated escape character '\'".to_string(), self.current_line)),
+                }
                 chr => string.push(chr),
             };
         }
@@ -383,6 +391,21 @@ mod tests {
             Token::new(TokenType::Identifier("abc42def".to_string()), 2),
             Token::new(TokenType::Equal, 2),
             Token::new(TokenType::Number(123.0), 2),
+        ];
+        assert_eq!(expected_token_stream, actual_token_stream);
+    }
+
+    #[test]
+    fn test_escape_sequences_in_string_literals() {
+        let input = r#"
+            "\"" "\\" "\"in quotes\"" "text \"in quotes\" can be wrapped with \\\""
+        "#.trim();
+        let actual_token_stream = Scanner::new(input).scan().unwrap();
+        let expected_token_stream = vec![
+            Token::new(TokenType::StringLiteral("\"".to_string()), 1),
+            Token::new(TokenType::StringLiteral("\\".to_string()), 1),
+            Token::new(TokenType::StringLiteral("\"in quotes\"".to_string()), 1),
+            Token::new(TokenType::StringLiteral("text \"in quotes\" can be wrapped with \\\"".to_string()), 1),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
