@@ -2,7 +2,7 @@ use std::error;
 use std::fmt;
 use std::fmt::Formatter;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     // single character tokens
     LeftParen,
@@ -111,7 +111,7 @@ impl fmt::Display for ParseTokenError {
 }
 impl error::Error for ParseTokenError {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub line_number: usize,

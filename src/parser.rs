@@ -1,11 +1,11 @@
-use std::fmt::Formatter;
 use crate::tokens::Token;
 use crate::tokens::TokenType;
 use std::fmt;
+use std::fmt::Formatter;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-trait Expression: fmt::Display {
+pub trait Expression: fmt::Display {
     fn eval(&self);
 }
 
@@ -97,7 +97,16 @@ impl Expression for GroupingExpression {
     fn eval(&self) {}
 }
 
-struct ParsingError {}
+pub struct ParsingError {
+    pub token: Option<Token>,
+    pub message: String,
+}
+
+impl ParsingError {
+    pub fn new(token: Option<Token>, message: String) -> Self {
+        ParsingError { token, message }
+    }
+}
 
 pub struct Parser {
     tokens: Peekable<IntoIter<Token>>,
@@ -112,11 +121,8 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) {
-        match self.expression() {
-            Ok(expr) => println!("{}", expr),
-            Err(err) => println!("Failed to parse"),
-        }
+    pub fn parse(&mut self) -> ParsingResult {
+        self.expression()
     }
 
     fn next_token_matches(&mut self, token_types: &[TokenType]) -> bool {
@@ -168,10 +174,13 @@ impl Parser {
         let mut expression = next_expression(self)?;
         while self.next_token_matches(operators) {
             let operator = self.tokens.next().unwrap();
-            let right_comparison = next_expression(self)?;
+            let right_comparison = next_expression(self).or(Err(ParsingError::new(
+                Some(operator.clone()),
+                format!("Expected expression after '{}'", operator),
+            )))?;
             expression = Box::new(BinaryExpression::new(
                 expression,
-                operator,
+                operator.clone(),
                 right_comparison,
             ));
         }
@@ -213,7 +222,7 @@ impl Parser {
                 }
             },
             // empty
-            None => Err(ParsingError{}),
+            None => Err(ParsingError::new(None, "Expected expression".to_string())),
         }
     }
 

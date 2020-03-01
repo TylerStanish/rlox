@@ -10,7 +10,23 @@ pub fn execute(code: &str) {
     let scanner = Scanner::new(code);
     let token_stream = scanner.scan();
     let mut parser = Parser::new(token_stream.unwrap());
-    parser.parse();
+    let expr = match parser.parse() {
+        Ok(expr) => {
+            println!("{}", expr);
+            expr
+        }
+        Err(err) => match err.token {
+            Some(token) => {
+                println!("{} at line {}", err.message, token.line_number);
+                return;
+            }
+            None => {
+                println!("{}", err.message);
+                return;
+            }
+        },
+    };
+    expr.eval();
 }
 
 pub fn repl() {
