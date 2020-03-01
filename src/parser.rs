@@ -27,6 +27,49 @@ impl Expression for BinaryExpression {
     fn eval(&self) {}
 }
 
+struct UnaryExpression {
+    operator: Token,
+    operand: Box<dyn Expression>,
+}
+
+impl UnaryExpression {
+    pub fn new(operator: Token, operand: Box<dyn Expression>) -> Self {
+        UnaryExpression { operator, operand }
+    }
+}
+
+impl Expression for UnaryExpression {
+    fn eval(&self) {}
+}
+
+struct LiteralExpression {
+    literal: Token,
+}
+
+impl LiteralExpression {
+    pub fn new(literal: Token) -> Self {
+        LiteralExpression { literal }
+    }
+}
+
+impl Expression for LiteralExpression {
+    fn eval(&self) {}
+}
+
+struct GroupingExpression {
+    expression: Box<dyn Expression>,
+}
+
+impl GroupingExpression {
+    pub fn new(expression: Box<dyn Expression>) -> Self {
+        GroupingExpression { expression }
+    }
+}
+
+impl Expression for GroupingExpression {
+    fn eval(&self) {}
+}
+
 struct ParsingError {}
 
 struct Parser {
@@ -104,10 +147,43 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Box<dyn Expression> {
-        unimplemented!();
+        if self.next_token_matches(&[TokenType::Bang, TokenType::Minus]) {
+            let operator = self.tokens.next().unwrap();
+            let operand = self.unary();
+            return Box::new(UnaryExpression::new(operator, operand));
+        }
+        self.primary()
     }
 
     fn primary(&mut self) -> Box<dyn Expression> {
-        unimplemented!();
+        match self.tokens.next() {
+            Some(token) => match token.token_type {
+                TokenType::False | TokenType::True | TokenType::Eof | TokenType::Nil => {
+                    Box::new(LiteralExpression::new(token))
+                }
+                TokenType::Number(_) | TokenType::StringLiteral(_) => {
+                    Box::new(LiteralExpression::new(token))
+                }
+                TokenType::LeftParen => {
+                    let expression = self.expression();
+                    if self.next_token_matches(&[TokenType::RightParen]) {
+                        self.tokens.next().unwrap();
+                        return Box::new(GroupingExpression::new(expression));
+                    } else {
+                        self.synchronize();
+                        self.expression()
+                    }
+                }
+                _ => {
+                    self.synchronize();
+                    self.expression()
+                }
+            },
+            // empty
+            None => Box::new(LiteralExpression::new(Token::new(TokenType::Eof, 1))),
+        }
     }
+
+    /// Calls next() until we reach a semicolon. Then continue to parse
+    fn synchronize(&mut self) {}
 }
