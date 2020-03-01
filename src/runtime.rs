@@ -9,6 +9,13 @@ use crate::scanner::Scanner;
 pub fn execute(code: &str) {
     let scanner = Scanner::new(code);
     let token_stream = scanner.scan();
+    match token_stream {
+        Ok(_) => (),
+        Err(e) => {
+            println!("{} at line {}", e.error, e.line_number);
+            return;
+        }
+    };
     let mut parser = Parser::new(token_stream.unwrap());
     let expr = match parser.parse() {
         Ok(expr) => {

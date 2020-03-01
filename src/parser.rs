@@ -174,10 +174,29 @@ impl Parser {
         let mut expression = next_expression(self)?;
         while self.next_token_matches(operators) {
             let operator = self.tokens.next().unwrap();
+            // Previously (3e3d88) we overwrite the expression from the higher priority:
+            /*
             let right_comparison = next_expression(self).or(Err(ParsingError::new(
                 Some(operator.clone()),
                 format!("Expected expression after '{}'", operator),
             )))?;
+            */
+            // We don't want to do that, but rather respect the error the higher-up
+            // gave us and send that back.
+            // EXCEPT when the error has a None token, then we want to provide a more
+            // specific error.
+            let right_comparison = match next_expression(self) {
+                Ok(expr) => expr,
+                Err(err) => match &err.token {
+                    Some(_) => return Err(err),
+                    None => {
+                        return Err(ParsingError::new(
+                            Some(operator.clone()),
+                            format!("Expected expression after '{}'", operator),
+                        ))
+                    }
+                },
+            };
             expression = Box::new(BinaryExpression::new(
                 expression,
                 operator.clone(),
@@ -190,7 +209,22 @@ impl Parser {
     fn unary(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self.tokens.next().unwrap();
-            let operand = self.unary()?;
+            let operand = match self.unary() {
+                Ok(expr) => expr,
+                Err(err) => match &err.token {
+                    Some(_) => return Err(err),
+                    None => return Err(ParsingError::new(
+                        Some(operator.clone()),
+                        format!("Expected expression after unary operator '{}'", operator),
+                    )),
+                }
+            };
+            /*
+            let operand = self.unary().or(Err(ParsingError::new(
+                Some(operator.clone()),
+                format!("Expected expression after '{}'", operator),
+            )))?;
+            */
             return Ok(Box::new(UnaryExpression::new(operator, operand)));
         }
         self.primary()
@@ -212,13 +246,19 @@ impl Parser {
                         Ok(Box::new(GroupingExpression::new(expression)))
                     } else {
                         self.synchronize();
-                        self.expression()
+                        Err(ParsingError::new(
+                            Some(token),
+                            "Expected closing ')' after '('".to_string(),
+                        ))
                     }
                 }
-                _ => {
+                other => {
                     // unexpected token
                     self.synchronize();
-                    self.expression()
+                    Err(ParsingError::new(
+                        None,
+                        format!("Unexpected token {}", other),
+                    ))
                 }
             },
             // empty
@@ -226,6 +266,24 @@ impl Parser {
         }
     }
 
-    /// Calls next() until we reach a semicolon. Then continue to parse
-    fn synchronize(&mut self) {}
+    /// Calls next() until we reach a semicolon or statement boundary.
+    /// Then continue to parse
+    fn synchronize(&mut self) {
+        loop {
+            match self.tokens.next() {
+                Some(token) => match token.token_type {
+                    TokenType::Semicolon
+                    | TokenType::Fun
+                    | TokenType::Var
+                    | TokenType::For
+                    | TokenType::If
+                    | TokenType::While
+                    | TokenType::Print
+                    | TokenType::Return => return,
+                    _ => (),
+                },
+                None => return,
+            }
+        }
+    }
 }

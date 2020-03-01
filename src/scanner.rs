@@ -5,8 +5,8 @@ use crate::tokens::{Token, TokenType};
 
 #[derive(Debug, PartialEq)]
 pub struct ScanningError {
-    error: String,
-    line_number: usize,
+    pub error: String,
+    pub line_number: usize,
 }
 impl ScanningError {
     fn new(msg: String, line_number: usize) -> Self {
@@ -205,7 +205,7 @@ impl Scanner {
             return self.parse_identifier_or_keyword(curr_char);
         }
         Err(ScanningError::new(
-            format!("Unexpected token {}", curr_char),
+            format!("Unexpected token '{}'", curr_char),
             self.current_line,
         ))
     }
