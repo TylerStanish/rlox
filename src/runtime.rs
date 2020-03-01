@@ -3,11 +3,14 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 pub fn execute(code: &str) {
     let scanner = Scanner::new(code);
-    println!("{:?}", scanner.scan());
+    let token_stream = scanner.scan();
+    let mut parser = Parser::new(token_stream.unwrap());
+    parser.parse();
 }
 
 pub fn repl() {

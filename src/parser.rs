@@ -1,9 +1,11 @@
+use std::fmt::Formatter;
 use crate::tokens::Token;
 use crate::tokens::TokenType;
+use std::fmt;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-trait Expression {
+trait Expression: fmt::Display {
     fn eval(&self);
 }
 
@@ -23,6 +25,13 @@ impl BinaryExpression {
     }
 }
 
+// https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-supertraits-to-require-one-traits-functionality-within-another-trait
+impl fmt::Display for BinaryExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.operator, self.left, self.right)
+    }
+}
+
 impl Expression for BinaryExpression {
     fn eval(&self) {}
 }
@@ -35,6 +44,12 @@ struct UnaryExpression {
 impl UnaryExpression {
     pub fn new(operator: Token, operand: Box<dyn Expression>) -> Self {
         UnaryExpression { operator, operand }
+    }
+}
+
+impl fmt::Display for UnaryExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {})", self.operator, self.operand)
     }
 }
 
@@ -52,6 +67,12 @@ impl LiteralExpression {
     }
 }
 
+impl fmt::Display for LiteralExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.literal)
+    }
+}
+
 impl Expression for LiteralExpression {
     fn eval(&self) {}
 }
@@ -66,15 +87,23 @@ impl GroupingExpression {
     }
 }
 
+impl fmt::Display for GroupingExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "({})", self.expression)
+    }
+}
+
 impl Expression for GroupingExpression {
     fn eval(&self) {}
 }
 
 struct ParsingError {}
 
-struct Parser {
+pub struct Parser {
     tokens: Peekable<IntoIter<Token>>,
 }
+
+type ParsingResult = Result<Box<dyn Expression>, ParsingError>;
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -83,8 +112,11 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Box<dyn Expression> {
-        self.expression()
+    pub fn parse(&mut self) {
+        match self.expression() {
+            Ok(expr) => println!("{}", expr),
+            Err(err) => println!("Failed to parse"),
+        }
     }
 
     fn next_token_matches(&mut self, token_types: &[TokenType]) -> bool {
@@ -94,18 +126,18 @@ impl Parser {
         }
     }
 
-    fn expression(&mut self) -> Box<dyn Expression> {
+    fn expression(&mut self) -> ParsingResult {
         self.equality()
     }
 
-    fn equality(&mut self) -> Box<dyn Expression> {
+    fn equality(&mut self) -> ParsingResult {
         self.parse_binary_operation(
             &[TokenType::BangEqual, TokenType::EqualEqual],
             &Parser::comparison,
         )
     }
 
-    fn comparison(&mut self) -> Box<dyn Expression> {
+    fn comparison(&mut self) -> ParsingResult {
         self.parse_binary_operation(
             &[
                 TokenType::LessEqual,
@@ -117,70 +149,71 @@ impl Parser {
         )
     }
 
-    fn addition(&mut self) -> Box<dyn Expression> {
+    fn addition(&mut self) -> ParsingResult {
         self.parse_binary_operation(
             &[TokenType::Plus, TokenType::Minus],
             &Parser::multiplication,
         )
     }
 
-    fn multiplication(&mut self) -> Box<dyn Expression> {
+    fn multiplication(&mut self) -> ParsingResult {
         self.parse_binary_operation(&[TokenType::Star, TokenType::Slash], &Parser::unary)
     }
 
     fn parse_binary_operation(
         &mut self,
         operators: &[TokenType],
-        next_expression: &dyn Fn(&mut Parser) -> Box<dyn Expression>,
-    ) -> Box<dyn Expression> {
-        let mut expression = next_expression(self);
+        next_expression: &dyn Fn(&mut Parser) -> ParsingResult,
+    ) -> ParsingResult {
+        let mut expression = next_expression(self)?;
         while self.next_token_matches(operators) {
             let operator = self.tokens.next().unwrap();
-            let right_comparison = next_expression(self);
+            let right_comparison = next_expression(self)?;
             expression = Box::new(BinaryExpression::new(
                 expression,
                 operator,
                 right_comparison,
             ));
         }
-        expression
+        Ok(expression)
     }
 
-    fn unary(&mut self) -> Box<dyn Expression> {
+    fn unary(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self.tokens.next().unwrap();
-            let operand = self.unary();
-            return Box::new(UnaryExpression::new(operator, operand));
+            let operand = self.unary()?;
+            return Ok(Box::new(UnaryExpression::new(operator, operand)));
         }
         self.primary()
     }
 
-    fn primary(&mut self) -> Box<dyn Expression> {
+    fn primary(&mut self) -> ParsingResult {
         match self.tokens.next() {
             Some(token) => match token.token_type {
                 TokenType::False | TokenType::True | TokenType::Eof | TokenType::Nil => {
-                    Box::new(LiteralExpression::new(token))
+                    Ok(Box::new(LiteralExpression::new(token)))
                 }
                 TokenType::Number(_) | TokenType::StringLiteral(_) => {
-                    Box::new(LiteralExpression::new(token))
+                    Ok(Box::new(LiteralExpression::new(token)))
                 }
                 TokenType::LeftParen => {
-                    let expression = self.expression();
+                    let expression = self.expression()?;
                     if self.next_token_matches(&[TokenType::RightParen]) {
                         self.tokens.next().unwrap();
-                        return Box::new(GroupingExpression::new(expression));
+                        Ok(Box::new(GroupingExpression::new(expression)))
                     } else {
                         self.synchronize();
                         self.expression()
                     }
                 }
                 _ => {
+                    // unexpected token
                     self.synchronize();
                     self.expression()
                 }
             },
             // empty
-            None => Box::new(LiteralExpression::new(Token::new(TokenType::Eof, 1))),
+            None => Err(ParsingError{}),
         }
     }
 

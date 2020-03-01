@@ -126,6 +126,7 @@ impl Token {
 }
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Token{{{:?} {}}}", self.token_type, self.line_number)
+        // write!(f, "Token{{{:?} {}}}", self.token_type, self.line_number)
+        write!(f, "{}", self.token_type)
     }
 }
