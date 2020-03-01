@@ -166,6 +166,20 @@ impl Parser {
         self.parse_binary_operation(&[TokenType::Star, TokenType::Slash], &Parser::unary)
     }
 
+    fn prioritize_higher_precedence_error(
+        next_expr: ParsingResult,
+        operator: &Token,
+        message: String,
+    ) -> ParsingResult {
+        match next_expr {
+            Ok(expr) => Ok(expr),
+            Err(err) => match &err.token {
+                Some(_) => return Err(err),
+                None => return Err(ParsingError::new(Some(operator.clone()), message)),
+            },
+        }
+    }
+
     fn parse_binary_operation(
         &mut self,
         operators: &[TokenType],
@@ -185,6 +199,8 @@ impl Parser {
             // gave us and send that back.
             // EXCEPT when the error has a None token, then we want to provide a more
             // specific error.
+            // As of (bdf8be) you do this:
+            /*
             let right_comparison = match next_expression(self) {
                 Ok(expr) => expr,
                 Err(err) => match &err.token {
@@ -197,6 +213,12 @@ impl Parser {
                     }
                 },
             };
+            */
+            let right_comparison = Parser::prioritize_higher_precedence_error(
+                next_expression(self),
+                &operator,
+                format!("Expected expression after '{}'", operator),
+            )?;
             expression = Box::new(BinaryExpression::new(
                 expression,
                 operator.clone(),
@@ -209,22 +231,11 @@ impl Parser {
     fn unary(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self.tokens.next().unwrap();
-            let operand = match self.unary() {
-                Ok(expr) => expr,
-                Err(err) => match &err.token {
-                    Some(_) => return Err(err),
-                    None => return Err(ParsingError::new(
-                        Some(operator.clone()),
-                        format!("Expected expression after unary operator '{}'", operator),
-                    )),
-                }
-            };
-            /*
-            let operand = self.unary().or(Err(ParsingError::new(
-                Some(operator.clone()),
-                format!("Expected expression after '{}'", operator),
-            )))?;
-            */
+            let operand = Parser::prioritize_higher_precedence_error(
+                self.unary(),
+                &operator,
+                format!("Expected expression after unary operator '{}'", operator),
+            )?;
             return Ok(Box::new(UnaryExpression::new(operator, operand)));
         }
         self.primary()
