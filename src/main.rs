@@ -1,5 +1,6 @@
 use std::env;
 
+mod parser;
 mod runtime;
 mod scanner;
 mod tokens;
@@ -9,6 +10,6 @@ fn main() {
     match args.len() {
         1 => runtime::repl(),
         2 => runtime::interpreter(args.get(1).unwrap()),
-        _ => println!("Usage: lox [filename]")
+        _ => println!("Usage: lox [filename]"),
     }
 }

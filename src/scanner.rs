@@ -3,7 +3,6 @@ use std::vec::IntoIter;
 
 use crate::tokens::{Token, TokenType};
 
-
 #[derive(Debug, PartialEq)]
 pub struct ScanningError {
     error: String,
@@ -40,7 +39,12 @@ impl Scanner {
         loop {
             let chr = match self.source.next() {
                 Some(chr) => chr,
-                None => return Err(ScanningError::new("Unterminated string literal".to_string(), self.current_line)),
+                None => {
+                    return Err(ScanningError::new(
+                        "Unterminated string literal".to_string(),
+                        self.current_line,
+                    ))
+                }
             };
             match chr {
                 '"' => break,
@@ -49,14 +53,27 @@ impl Scanner {
                     Some(escaped) => match escaped {
                         '\\' => string.push('\\'),
                         '"' => string.push('"'),
-                        other => return Err(ScanningError::new(format!("Unrecognized escape sequence {}", other), self.current_line)),
+                        other => {
+                            return Err(ScanningError::new(
+                                format!("Unrecognized escape sequence {}", other),
+                                self.current_line,
+                            ))
+                        }
                     },
-                    None => return Err(ScanningError::new("Unterminated escape character '\'".to_string(), self.current_line)),
-                }
+                    None => {
+                        return Err(ScanningError::new(
+                            "Unterminated escape character '\'".to_string(),
+                            self.current_line,
+                        ))
+                    }
+                },
                 chr => string.push(chr),
             };
         }
-        Ok(Token::new(TokenType::StringLiteral(string.iter().collect()), self.current_line))
+        Ok(Token::new(
+            TokenType::StringLiteral(string.iter().collect()),
+            self.current_line,
+        ))
     }
 
     /// This can be a single-line comment, or division
@@ -64,26 +81,41 @@ impl Scanner {
     fn parse_slash(&mut self) -> Result<Option<Token>, ScanningError> {
         let chr = match self.source.peek() {
             Some(chr) => chr,
-            None => return Err(ScanningError::new("Dangling '/'".to_string(), self.current_line)),
+            None => {
+                return Err(ScanningError::new(
+                    "Dangling '/'".to_string(),
+                    self.current_line,
+                ))
+            }
         };
         match chr {
             '/' => {
                 // single-line comment; go until \n or EOF (i.e. when 'while let' no longer matches Some(chr))
                 while let Some(chr) = self.source.next() {
                     if chr == '\n' {
-                        break
+                        break;
                     }
                 }
                 Ok(None)
-            },
-            _ => Ok(Some(Token::new(TokenType::Slash, self.current_line)))
+            }
+            _ => Ok(Some(Token::new(TokenType::Slash, self.current_line))),
         }
     }
 
-    fn parse_lookahead_equal(&mut self, curr_char: char, single: TokenType, single_with_equals: TokenType) -> Result<Option<Token>, ScanningError> {
+    fn parse_lookahead_equal(
+        &mut self,
+        curr_char: char,
+        single: TokenType,
+        single_with_equals: TokenType,
+    ) -> Result<Option<Token>, ScanningError> {
         let chr = match self.source.peek() {
             Some(chr) => chr,
-            None => return Err(ScanningError::new(format!("Dangling {}", curr_char).to_string(), self.current_line)),
+            None => {
+                return Err(ScanningError::new(
+                    format!("Dangling {}", curr_char).to_string(),
+                    self.current_line,
+                ))
+            }
         };
         match chr {
             '=' => Ok(Some(Token::new(single_with_equals, self.current_line))),
@@ -95,7 +127,7 @@ impl Scanner {
         let mut string = vec![curr_char];
         while let Some(chr) = self.source.peek() {
             if *chr != '.' && (*chr < '0' || *chr > '9') {
-                break
+                break;
             }
             string.push(*chr);
             self.source.next();
@@ -104,7 +136,12 @@ impl Scanner {
         let s: String = string.into_iter().collect();
         let num: f64 = match s.parse() {
             Ok(num) => num,
-            Err(_) => return Err(ScanningError::new("Badly formed number".to_string(), self.current_line)),
+            Err(_) => {
+                return Err(ScanningError::new(
+                    "Badly formed number".to_string(),
+                    self.current_line,
+                ))
+            }
         };
         Ok(Some(Token::new(TokenType::Number(num), self.current_line)))
     }
@@ -112,47 +149,65 @@ impl Scanner {
     /// checks if a string is a keyword, or just an identifier
     fn identifier_or_keyword(&self, s: &str) -> Token {
         match s {
-            "and"    => Token::new(TokenType::And, self.current_line),
-            "class"  => Token::new(TokenType::Class, self.current_line),
-            "else"   => Token::new(TokenType::Else, self.current_line),
-            "false"  => Token::new(TokenType::False, self.current_line),
-            "fun"    => Token::new(TokenType::Fun, self.current_line),
-            "for"    => Token::new(TokenType::For, self.current_line),
-            "if"     => Token::new(TokenType::If, self.current_line),
-            "nil"    => Token::new(TokenType::Nil, self.current_line),
-            "or"     => Token::new(TokenType::Or, self.current_line),
-            "print"  => Token::new(TokenType::Print, self.current_line),
+            "and" => Token::new(TokenType::And, self.current_line),
+            "class" => Token::new(TokenType::Class, self.current_line),
+            "else" => Token::new(TokenType::Else, self.current_line),
+            "false" => Token::new(TokenType::False, self.current_line),
+            "fun" => Token::new(TokenType::Fun, self.current_line),
+            "for" => Token::new(TokenType::For, self.current_line),
+            "if" => Token::new(TokenType::If, self.current_line),
+            "nil" => Token::new(TokenType::Nil, self.current_line),
+            "or" => Token::new(TokenType::Or, self.current_line),
+            "print" => Token::new(TokenType::Print, self.current_line),
             "return" => Token::new(TokenType::Return, self.current_line),
-            "super"  => Token::new(TokenType::Super, self.current_line),
-            "this"   => Token::new(TokenType::This, self.current_line),
-            "true"   => Token::new(TokenType::True, self.current_line),
-            "var"    => Token::new(TokenType::Var, self.current_line),
-            "while"  => Token::new(TokenType::While, self.current_line),
-            identifier => Token::new(TokenType::Identifier(identifier.to_string()), self.current_line)
+            "super" => Token::new(TokenType::Super, self.current_line),
+            "this" => Token::new(TokenType::This, self.current_line),
+            "true" => Token::new(TokenType::True, self.current_line),
+            "var" => Token::new(TokenType::Var, self.current_line),
+            "while" => Token::new(TokenType::While, self.current_line),
+            identifier => Token::new(
+                TokenType::Identifier(identifier.to_string()),
+                self.current_line,
+            ),
         }
     }
 
-    fn parse_identifier_or_keyword(&mut self, curr_char: char) -> Result<Option<Token>, ScanningError> {
+    fn parse_identifier_or_keyword(
+        &mut self,
+        curr_char: char,
+    ) -> Result<Option<Token>, ScanningError> {
         let mut string = vec![curr_char];
         // while we equal _, a-z, A-Z, or 0-9 we want to add to the string
         while let Some(chr) = self.source.peek() {
-            if *chr != '_' && (*chr < 'a' || *chr > 'z') && (*chr < 'A' || *chr > 'Z') && (*chr < '0' || *chr > '9') {
+            if *chr != '_'
+                && (*chr < 'a' || *chr > 'z')
+                && (*chr < 'A' || *chr > 'Z')
+                && (*chr < '0' || *chr > '9')
+            {
                 break;
             }
             string.push(*chr);
             self.source.next();
         }
-        return Ok(Some(self.identifier_or_keyword(string.into_iter().collect::<String>().as_ref())))
+        return Ok(Some(self.identifier_or_keyword(
+            string.into_iter().collect::<String>().as_ref(),
+        )));
     }
 
     fn parse_other(&mut self, curr_char: char) -> Result<Option<Token>, ScanningError> {
         if curr_char >= '0' && curr_char <= '9' {
             return self.parse_number(curr_char);
         }
-        if (curr_char >= 'A' && curr_char <= 'Z') || (curr_char >= 'a' && curr_char <= 'z') || (curr_char == '_') {
+        if (curr_char >= 'A' && curr_char <= 'Z')
+            || (curr_char >= 'a' && curr_char <= 'z')
+            || (curr_char == '_')
+        {
             return self.parse_identifier_or_keyword(curr_char);
         }
-        Err(ScanningError::new(format!("Unexpected token {}", curr_char), self.current_line))
+        Err(ScanningError::new(
+            format!("Unexpected token {}", curr_char),
+            self.current_line,
+        ))
     }
 
     /// An Ok(Some(tok)) means we parsed ok and have a token.
@@ -188,7 +243,7 @@ impl Scanner {
             '\n' => {
                 self.current_line += 1;
                 Ok(None)
-            },
+            }
             '\r' | '\t' | ' ' => Ok(None),
             // must be a variable, keyword, or number
             other => self.parse_other(other),
@@ -208,34 +263,32 @@ impl Scanner {
                 },
                 Err(e) => return Err(e),
             };
-        };
+        }
     }
 }
-
-
 
 mod tests {
     #[cfg(test)]
     use super::*;
     #[cfg(test)]
-    use pretty_assertions::{assert_eq};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_string_literal_parsing() {
         let input = r#"
             "hi"
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
-        let expected_token_stream = vec![
-            Token::new(TokenType::StringLiteral("hi".to_string()), 1),
-        ];
+        let expected_token_stream = vec![Token::new(TokenType::StringLiteral("hi".to_string()), 1)];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
     #[test]
     fn test_parentheses() {
         let input = r#"
             (())()()((()()))
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::LeftParen, 1),
@@ -263,7 +316,8 @@ mod tests {
             "hi"
             "there"
             {"how are you?"}
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::StringLiteral("hi".to_string()), 1),
@@ -281,7 +335,8 @@ mod tests {
             var a = 1 + 2;
             var b = a * 5;
             var c = b - a;
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::Var, 1),
@@ -291,7 +346,6 @@ mod tests {
             Token::new(TokenType::Plus, 1),
             Token::new(TokenType::Number(2.0), 1),
             Token::new(TokenType::Semicolon, 1),
-
             Token::new(TokenType::Var, 2),
             Token::new(TokenType::Identifier("b".to_string()), 2),
             Token::new(TokenType::Equal, 2),
@@ -299,7 +353,6 @@ mod tests {
             Token::new(TokenType::Star, 2),
             Token::new(TokenType::Number(5.0), 2),
             Token::new(TokenType::Semicolon, 2),
-
             Token::new(TokenType::Var, 3),
             Token::new(TokenType::Identifier("c".to_string()), 3),
             Token::new(TokenType::Equal, 3),
@@ -316,17 +369,22 @@ mod tests {
         let input = r#"
             var bla = 42;
             "foobar
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan();
         let err = actual_token_stream.expect_err("Should have told us there was an error");
-        assert_eq!(err, ScanningError::new("Unterminated string literal".to_string(), 2));
+        assert_eq!(
+            err,
+            ScanningError::new("Unterminated string literal".to_string(), 2)
+        );
     }
 
     #[test]
     fn test_basic_keyword() {
         let input = r#"
             class B {}
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::Class, 1),
@@ -342,7 +400,8 @@ mod tests {
         let input = r#"
             var abc = 123
             456;
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::Var, 1),
@@ -360,7 +419,8 @@ mod tests {
         let input = r#"
             var abc1 = 123
             var abc42def = 123
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::Var, 1),
@@ -380,7 +440,8 @@ mod tests {
         let input = r#"
             var abc1=123
             var abc42def=123
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::Var, 1),
@@ -399,13 +460,17 @@ mod tests {
     fn test_escape_sequences_in_string_literals() {
         let input = r#"
             "\"" "\\" "\"in quotes\"" "text \"in quotes\" can be wrapped with \\\""
-        "#.trim();
+        "#
+        .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
         let expected_token_stream = vec![
             Token::new(TokenType::StringLiteral("\"".to_string()), 1),
             Token::new(TokenType::StringLiteral("\\".to_string()), 1),
             Token::new(TokenType::StringLiteral("\"in quotes\"".to_string()), 1),
-            Token::new(TokenType::StringLiteral("text \"in quotes\" can be wrapped with \\\"".to_string()), 1),
+            Token::new(
+                TokenType::StringLiteral("text \"in quotes\" can be wrapped with \\\"".to_string()),
+                1,
+            ),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
