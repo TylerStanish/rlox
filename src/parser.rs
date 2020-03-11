@@ -10,12 +10,27 @@ use crate::expressions::{
 pub struct ParsingError {
     pub token: Option<Token>,
     pub message: String,
+    pub priority: ParsingErrorPriority,
 }
 
 impl ParsingError {
-    pub fn new(token: Option<Token>, message: String) -> Self {
-        ParsingError { token, message }
+    pub fn new(token: Option<Token>, message: String, priority: ParsingErrorPriority) -> Self {
+        ParsingError { token, message, priority }
     }
+}
+
+#[derive(Debug, PartialOrd, PartialEq)]
+pub enum ParsingErrorPriority {
+    Primary, // = 0, lowest priority
+    Unary,
+    /*
+    Multiplication,
+    Addition,
+    Comparison,
+    Equality,
+    */
+    Binary,
+    Expression, // = 6, highest priority
 }
 
 pub struct Parser {
@@ -43,7 +58,11 @@ impl Parser {
     }
 
     fn expression(&mut self) -> ParsingResult {
-        self.equality()
+        if self.next_token_matches(&[TokenType::Eof]) {
+            Ok(Box::new(LiteralExpression::new(self.tokens.next().unwrap())))
+        } else {
+            self.equality()
+        }
     }
 
     fn equality(&mut self) -> ParsingResult {
@@ -80,12 +99,16 @@ impl Parser {
         next_expr: ParsingResult,
         operator: &Token,
         message: String,
+        priority_here: ParsingErrorPriority,
     ) -> ParsingResult {
         match next_expr {
             Ok(expr) => Ok(expr),
-            Err(err) => match &err.token {
-                Some(_) => return Err(err),
-                None => return Err(ParsingError::new(Some(operator.clone()), message)),
+            Err(err) => {
+                if err.priority < priority_here {
+                    Err(ParsingError::new(Some(operator.clone()), message, err.priority))
+                } else {
+                    Err(err)
+                }
             },
         }
     }
@@ -128,6 +151,7 @@ impl Parser {
                 next_expression(self),
                 &operator,
                 format!("Expected expression after '{}'", operator),
+                ParsingErrorPriority::Binary,
             )?;
             expression = Box::new(BinaryExpression::new(
                 expression,
@@ -145,6 +169,7 @@ impl Parser {
                 self.unary(),
                 &operator,
                 format!("Expected expression after unary operator '{}'", operator),
+                ParsingErrorPriority::Unary,
             )?;
             return Ok(Box::new(UnaryExpression::new(operator, operand)));
         }
@@ -152,13 +177,13 @@ impl Parser {
     }
 
     fn primary(&mut self) -> ParsingResult {
-        match self.tokens.next() {
-            Some(token) => match token.token_type {
-                TokenType::False | TokenType::True | TokenType::Eof | TokenType::Nil => {
-                    Ok(Box::new(LiteralExpression::new(token)))
+        match &self.tokens.next() {
+            Some(token) => match &token.token_type {
+                TokenType::False | TokenType::True | TokenType::Nil => {
+                    Ok(Box::new(LiteralExpression::new(token.clone())))
                 }
                 TokenType::Number(_) | TokenType::StringLiteral(_) => {
-                    Ok(Box::new(LiteralExpression::new(token)))
+                    Ok(Box::new(LiteralExpression::new(token.clone())))
                 }
                 TokenType::LeftParen => {
                     let expression = self.expression()?;
@@ -168,22 +193,33 @@ impl Parser {
                     } else {
                         self.synchronize();
                         Err(ParsingError::new(
-                            Some(token),
+                            Some(token.clone()),
                             "Expected closing ')' after '('".to_string(),
+                            ParsingErrorPriority::Primary,
                         ))
                     }
+                }
+                TokenType::Eof => {
+                    Err(ParsingError::new(
+                        None,
+                        "Unexpected EOF".to_string(),
+                        ParsingErrorPriority::Primary,
+                    ))
                 }
                 other => {
                     // unexpected token
                     self.synchronize();
                     Err(ParsingError::new(
-                        None,
+                        Some(token.clone()),
                         format!("Unexpected token {}", other),
+                        ParsingErrorPriority::Primary,
                     ))
                 }
             },
             // empty
-            None => Err(ParsingError::new(None, "Expected expression".to_string())),
+            //None => Err(ParsingError::new(None, "Expected expression".to_string(), ParsingErrorPriority::Primary)),
+            //None => Ok(Box::new(LiteralExpression::new(Token::new(TokenType::Nil, 0)))),
+            None => panic!("Lexing error, lexer should put TokenType::Eof at the end of the lexing stage"),
         }
     }
 

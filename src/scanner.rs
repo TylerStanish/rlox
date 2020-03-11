@@ -255,9 +255,12 @@ impl Scanner {
             let res_opt_tok = self.scan_token();
             match res_opt_tok {
                 Ok(opt_tok) => match opt_tok {
-                    Some(tok) => match tok.token_type {
-                        TokenType::Eof => return Ok(self.tokens),
-                        _ => self.tokens.push(tok),
+                    Some(tok) => {
+                        self.tokens.push(tok.clone());
+                        match tok.token_type {
+                            TokenType::Eof => return Ok(self.tokens),
+                            _ => (),
+                        }
                     },
                     _ => (),
                 },

@@ -17,7 +17,19 @@ impl From<LoxObject> for f64 {
     fn from(lox_obj: LoxObject) -> f64 {
         match lox_obj {
             LoxObject::LoxNumber(num) => num,
-            _ => 0.0,
+            _ => 0.0, // TODO runtime error, cannot convert non-number to float? Or just do binary magic?
+        }
+    }
+}
+
+impl From<LoxObject> for bool {
+    fn from(lox_obj: LoxObject) -> bool {
+        match lox_obj {
+            LoxObject::LoxNumber(num) => num != 0.0, // coerce non-zero numbers to true, zero to false
+            LoxObject::LoxString(s) => !s.is_empty(), // coerce non-empty strings to true, empty strings to false
+            LoxObject::LoxBoolean(b) => b,
+            LoxObject::LoxNil => false,
+            LoxObject::LoxFunction => true, // coerce all functions to true, i guess lol, or TODO raise runtime error
         }
     }
 }
@@ -57,6 +69,21 @@ impl Expression for BinaryExpression {
                 let right_num: f64 = self.right.eval().into();
                 LoxObject::LoxNumber(left_num + right_num)
             },
+            TokenType::Minus => {
+                let left_num: f64 = self.left.eval().into();
+                let right_num: f64 = self.right.eval().into();
+                LoxObject::LoxNumber(left_num - right_num)
+            },
+            TokenType::Star => {
+                let left_num: f64 = self.left.eval().into();
+                let right_num: f64 = self.right.eval().into();
+                LoxObject::LoxNumber(left_num * right_num)
+            },
+            TokenType::Slash => {
+                let left_num: f64 = self.left.eval().into();
+                let right_num: f64 = self.right.eval().into();
+                LoxObject::LoxNumber(left_num / right_num)
+            },
             _ => panic!(format!("Expected one of ['+', '-', '*', '/'] for binary operation, got {}", self.operator.token_type)), // runtime error (not our fault! user's fault!)
         }
     }
@@ -86,6 +113,10 @@ impl Expression for UnaryExpression {
                 let operand: f64 = self.operand.eval().into();
                 LoxObject::LoxNumber(-operand)
             },
+            TokenType::Bang => {
+                let operand: bool = self.operand.eval().into();
+                LoxObject::LoxBoolean(!operand)
+            },
             _ => panic!(format!("Expected one of ['-', '!'] for binary operation, got {}", self.operator.token_type)), // runtime error (not our fault! user's fault!)
         }
     }
@@ -112,6 +143,7 @@ impl Expression for LiteralExpression {
         match &self.literal.token_type {
             TokenType::Number(num) => LoxObject::LoxNumber(*num),
             TokenType::StringLiteral(s) => LoxObject::LoxString(s.clone()),
+            TokenType::Eof => LoxObject::LoxNil,
             _ => panic!(format!("Expected a literal token type, got {}", self.literal.token_type)), // runtime error (not our fault! user's fault!)
         }
     }
