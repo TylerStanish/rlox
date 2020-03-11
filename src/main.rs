@@ -1,5 +1,6 @@
 use std::env;
 
+mod expressions;
 mod parser;
 mod runtime;
 mod scanner;
