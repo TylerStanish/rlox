@@ -142,6 +142,8 @@ impl Expression for LiteralExpression {
     fn eval(&self) -> LoxObject {
         match &self.literal.token_type {
             TokenType::Number(num) => LoxObject::LoxNumber(*num),
+            TokenType::True => LoxObject::LoxBoolean(true),
+            TokenType::False => LoxObject::LoxBoolean(false),
             TokenType::StringLiteral(s) => LoxObject::LoxString(s.clone()),
             TokenType::Eof => LoxObject::LoxNil,
             _ => panic!(format!("Expected a literal token type, got {}", self.literal.token_type)), // runtime error (not our fault! user's fault!)
