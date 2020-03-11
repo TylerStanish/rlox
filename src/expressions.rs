@@ -1,10 +1,29 @@
 use std::fmt;
 use std::fmt::Formatter;
 
-use crate::tokens::Token;
+use crate::tokens::{Token, TokenType};
+
+/// The builtin types of Lox
+#[derive(Debug)]
+pub enum LoxObject {
+    LoxNumber(f64),
+    LoxString(String),
+    LoxBoolean(bool),
+    LoxNil,
+    LoxFunction,
+}
+
+impl From<LoxObject> for f64 {
+    fn from(lox_obj: LoxObject) -> f64 {
+        match lox_obj {
+            LoxObject::LoxNumber(num) => num,
+            _ => 0.0,
+        }
+    }
+}
 
 pub trait Expression: fmt::Display {
-    fn eval(&self);
+    fn eval(&self) -> LoxObject;
 }
 
 pub struct BinaryExpression {
@@ -31,7 +50,16 @@ impl fmt::Display for BinaryExpression {
 }
 
 impl Expression for BinaryExpression {
-    fn eval(&self) {}
+    fn eval(&self) -> LoxObject {
+        match self.operator.token_type {
+            TokenType::Plus => {
+                let left_num: f64 = self.left.eval().into();
+                let right_num: f64 = self.right.eval().into();
+                LoxObject::LoxNumber(left_num + right_num)
+            },
+            _ => panic!(format!("Expected one of ['+', '-', '*', '/'] for binary operation, got {}", self.operator.token_type)), // runtime error (not our fault! user's fault!)
+        }
+    }
 }
 
 pub struct UnaryExpression {
@@ -52,7 +80,15 @@ impl fmt::Display for UnaryExpression {
 }
 
 impl Expression for UnaryExpression {
-    fn eval(&self) {}
+    fn eval(&self) -> LoxObject {
+        match self.operator.token_type {
+            TokenType::Minus => {
+                let operand: f64 = self.operand.eval().into();
+                LoxObject::LoxNumber(-operand)
+            },
+            _ => panic!(format!("Expected one of ['-', '!'] for binary operation, got {}", self.operator.token_type)), // runtime error (not our fault! user's fault!)
+        }
+    }
 }
 
 pub struct LiteralExpression {
@@ -72,7 +108,13 @@ impl fmt::Display for LiteralExpression {
 }
 
 impl Expression for LiteralExpression {
-    fn eval(&self) {}
+    fn eval(&self) -> LoxObject {
+        match &self.literal.token_type {
+            TokenType::Number(num) => LoxObject::LoxNumber(*num),
+            TokenType::StringLiteral(s) => LoxObject::LoxString(s.clone()),
+            _ => panic!(format!("Expected a literal token type, got {}", self.literal.token_type)), // runtime error (not our fault! user's fault!)
+        }
+    }
 }
 
 pub struct GroupingExpression {
@@ -92,5 +134,7 @@ impl fmt::Display for GroupingExpression {
 }
 
 impl Expression for GroupingExpression {
-    fn eval(&self) {}
+    fn eval(&self) -> LoxObject {
+        self.expression.eval()
+    }
 }
