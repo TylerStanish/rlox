@@ -39,6 +39,18 @@ pub trait Expression: Statement + fmt::Display {
     fn eval(&self) -> LoxObject;
 }
 
+/*
+pub trait ExpressionAsStatement {
+    fn as_statement(&self) -> &dyn Statement;
+}
+
+impl<T> ExpressionAsStatement for T where T: Expression {
+    fn as_statement(&self) -> &dyn Statement {
+        self
+    }
+}
+*/
+
 // also, see this: https://stackoverflow.com/a/29256897
 impl<T> Statement for T where T: Expression {
     fn eval_statement(&self) {

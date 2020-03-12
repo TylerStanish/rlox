@@ -17,24 +17,21 @@ pub fn execute(code: &str) {
         }
     };
     let mut parser = Parser::new(token_stream.unwrap());
-    let expr = match parser.parse() {
-        Ok(expr) => {
-            println!("{}", expr);
-            expr
+    for stmt_res in parser.parse() {
+        match stmt_res {
+            Ok(stmt) => stmt.eval_statement(),
+            Err(err) => match err.token {
+                Some(token) => {
+                    println!("{} at line {}", err.message, token.line_number);
+                    return;
+                }
+                None => {
+                    println!("{}", err.message);
+                    return;
+                }
+            }
         }
-        Err(err) => match err.token {
-            Some(token) => {
-                println!("{} at line {}", err.message, token.line_number);
-                return;
-            }
-            None => {
-                println!("{}", err.message);
-                return;
-            }
-        },
-    };
-    let res = expr.eval_statement();
-    println!("{:?}", res);
+    }
 }
 
 pub fn repl() {

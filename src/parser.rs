@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 use crate::expressions::{
     BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression,
 };
-use crate::statements::{Statement, ExpressionStatement};
+use crate::statements::{Statement, ExpressionStatement, PrintStatement};
 
 #[derive(Debug)]
 pub struct ParsingError {
@@ -50,9 +50,13 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> ParsingResult {
+    pub fn parse(&mut self) -> Vec<ParsingResult> {
         // https://www.reddit.com/r/rust/comments/94s9ys/why_cant_i_cast_a_dyn_a_into_a_dyn_b_when_b_a/
-        self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>)
+        let mut statements = Vec::new();
+        while self.tokens.peek().is_some() {
+            statements.push(self.statement());
+        }
+        statements
     }
 
     fn next_token_matches(&mut self, token_types: &[TokenType]) -> bool {
@@ -64,21 +68,24 @@ impl Parser {
 
     fn statement(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Print]) {
-            self.print_statement()
+            self.tokens.next().unwrap();
+            let res = self.print_statement();
+            res
         } else {
-            self.expression().unwrap().eval_statement();
-            self.print_statement()
+            let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
+            if !self.next_token_matches(&[TokenType::Semicolon]) {
+                return Err(ParsingError::new(None, "Expected ';' after expression statement".to_string(), ParsingErrorPriority::Statement));
+            }
+            res
         }
     }
 
     fn print_statement(&mut self) -> ParsingResult {
-        if self.next_token_matches(&[TokenType::Semicolon]) {
-            let expr = self.expression()?;
-            self.tokens.next().unwrap();
-            Ok(Box::new(ExpressionStatement::new(expr))) // NOTE why does this work but current line 23 'as Box<dyn ...' doesn't?
-        } else {
-            Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement))
+        let expr = self.expression()?;
+        if !self.next_token_matches(&[TokenType::Semicolon]) {
+            return Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement));
         }
+        Ok(Box::new(PrintStatement::new(expr)))
     }
 
     fn expression(&mut self) -> ExpressionParsingResult {
@@ -145,32 +152,6 @@ impl Parser {
         let mut expression = next_expression(self)?;
         while self.next_token_matches(operators) {
             let operator = self.tokens.next().unwrap();
-            // Previously (3e3d88) we overwrite the expression from the higher priority:
-            /*
-            let right_comparison = next_expression(self).or(Err(ParsingError::new(
-                Some(operator.clone()),
-                format!("Expected expression after '{}'", operator),
-            )))?;
-            */
-            // We don't want to do that, but rather respect the error the higher-up
-            // gave us and send that back.
-            // EXCEPT when the error has a None token, then we want to provide a more
-            // specific error.
-            // As of (bdf8be) you do this:
-            /*
-            let right_comparison = match next_expression(self) {
-                Ok(expr) => expr,
-                Err(err) => match &err.token {
-                    Some(_) => return Err(err),
-                    None => {
-                        return Err(ParsingError::new(
-                            Some(operator.clone()),
-                            format!("Expected expression after '{}'", operator),
-                        ))
-                    }
-                },
-            };
-            */
             let right_comparison = Parser::prioritize_higher_precedence_error(
                 next_expression(self),
                 &operator,

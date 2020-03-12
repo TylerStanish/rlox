@@ -1,7 +1,6 @@
 use crate::expressions::{Expression};
 
 
-#[derive(Debug)]
 pub trait Statement {
     //fn eval(&self) -> Option<LoxObject>;
     fn eval_statement(&self);
@@ -30,9 +29,17 @@ pub struct PrintStatement {
     pub expr: Box<dyn Expression>,
 }
 
+impl PrintStatement {
+    pub fn new(expr: Box<dyn Expression>) -> Self {
+        PrintStatement {
+            expr
+        }
+    }
+}
+
 impl Statement for PrintStatement {
     fn eval_statement(&self) {
-        println!("{}", self.expr);
+        println!("{:?}", self.expr.eval());
     }
 }
 
