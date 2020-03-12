@@ -2,6 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use crate::tokens::{Token, TokenType};
+use crate::statements::Statement;
 
 /// The builtin types of Lox
 #[derive(Debug)]
@@ -34,8 +35,15 @@ impl From<LoxObject> for bool {
     }
 }
 
-pub trait Expression: fmt::Display {
+pub trait Expression: Statement + fmt::Display {
     fn eval(&self) -> LoxObject;
+}
+
+// also, see this: https://stackoverflow.com/a/29256897
+impl<T> Statement for T where T: Expression {
+    fn eval_statement(&self) {
+        self.eval();
+    }
 }
 
 pub struct BinaryExpression {

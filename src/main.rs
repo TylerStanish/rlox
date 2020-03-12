@@ -4,6 +4,7 @@ mod expressions;
 mod parser;
 mod runtime;
 mod scanner;
+mod statements;
 mod tokens;
 
 fn main() {

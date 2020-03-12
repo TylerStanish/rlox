@@ -6,7 +6,9 @@ use std::vec::IntoIter;
 use crate::expressions::{
     BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression,
 };
+use crate::statements::{Statement};
 
+#[derive(Debug)]
 pub struct ParsingError {
     pub token: Option<Token>,
     pub message: String,
@@ -30,14 +32,16 @@ pub enum ParsingErrorPriority {
     Equality,
     */
     Binary,
-    Expression, // = 6, highest priority
+    Expression,
+    Statement, // = 7, highest priority
 }
 
 pub struct Parser {
     tokens: Peekable<IntoIter<Token>>,
 }
 
-type ParsingResult = Result<Box<dyn Expression>, ParsingError>;
+type ParsingResult = Result<Box<dyn Statement>, ParsingError>;
+type ExpressionParsingResult = Result<Box<dyn Expression>, ParsingError>;
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -47,6 +51,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> ParsingResult {
+        // https://www.reddit.com/r/rust/comments/94s9ys/why_cant_i_cast_a_dyn_a_into_a_dyn_b_when_b_a/
         self.expression()
     }
 
@@ -57,7 +62,26 @@ impl Parser {
         }
     }
 
-    fn expression(&mut self) -> ParsingResult {
+    fn statement(&mut self) -> ParsingResult {
+        if self.next_token_matches(&[TokenType::Print]) {
+            self.print_statement()
+        } else {
+            self.expression().unwrap().eval_statement();
+            self.print_statement()
+        }
+    }
+
+    fn print_statement(&mut self) -> ParsingResult {
+        if self.next_token_matches(&[TokenType::Semicolon]) {
+            let expr = self.expression()?;
+            self.tokens.next().unwrap();
+            Ok(expr)
+        } else {
+            Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement))
+        }
+    }
+
+    fn expression(&mut self) -> ExpressionParsingResult {
         if self.next_token_matches(&[TokenType::Eof]) {
             Ok(Box::new(LiteralExpression::new(self.tokens.next().unwrap())))
         } else {
@@ -65,14 +89,14 @@ impl Parser {
         }
     }
 
-    fn equality(&mut self) -> ParsingResult {
+    fn equality(&mut self) -> ExpressionParsingResult {
         self.parse_binary_operation(
             &[TokenType::BangEqual, TokenType::EqualEqual],
             &Parser::comparison,
         )
     }
 
-    fn comparison(&mut self) -> ParsingResult {
+    fn comparison(&mut self) -> ExpressionParsingResult {
         self.parse_binary_operation(
             &[
                 TokenType::LessEqual,
@@ -84,23 +108,23 @@ impl Parser {
         )
     }
 
-    fn addition(&mut self) -> ParsingResult {
+    fn addition(&mut self) -> ExpressionParsingResult {
         self.parse_binary_operation(
             &[TokenType::Plus, TokenType::Minus],
             &Parser::multiplication,
         )
     }
 
-    fn multiplication(&mut self) -> ParsingResult {
+    fn multiplication(&mut self) -> ExpressionParsingResult {
         self.parse_binary_operation(&[TokenType::Star, TokenType::Slash], &Parser::unary)
     }
 
     fn prioritize_higher_precedence_error(
-        next_expr: ParsingResult,
+        next_expr: ExpressionParsingResult,
         operator: &Token,
         message: String,
         priority_here: ParsingErrorPriority,
-    ) -> ParsingResult {
+    ) -> ExpressionParsingResult {
         match next_expr {
             Ok(expr) => Ok(expr),
             Err(err) => {
@@ -116,8 +140,8 @@ impl Parser {
     fn parse_binary_operation(
         &mut self,
         operators: &[TokenType],
-        next_expression: &dyn Fn(&mut Parser) -> ParsingResult,
-    ) -> ParsingResult {
+        next_expression: &dyn Fn(&mut Parser) -> ExpressionParsingResult,
+    ) -> ExpressionParsingResult {
         let mut expression = next_expression(self)?;
         while self.next_token_matches(operators) {
             let operator = self.tokens.next().unwrap();
@@ -162,7 +186,7 @@ impl Parser {
         Ok(expression)
     }
 
-    fn unary(&mut self) -> ParsingResult {
+    fn unary(&mut self) -> ExpressionParsingResult {
         if self.next_token_matches(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self.tokens.next().unwrap();
             let operand = Parser::prioritize_higher_precedence_error(
@@ -176,7 +200,7 @@ impl Parser {
         self.primary()
     }
 
-    fn primary(&mut self) -> ParsingResult {
+    fn primary(&mut self) -> ExpressionParsingResult {
         match &self.tokens.next() {
             Some(token) => match &token.token_type {
                 TokenType::False | TokenType::True | TokenType::Nil => {
