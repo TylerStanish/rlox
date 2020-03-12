@@ -33,7 +33,7 @@ pub fn execute(code: &str) {
             }
         },
     };
-    let res = expr.eval();
+    let res = expr.eval_statement();
     println!("{:?}", res);
 }
 

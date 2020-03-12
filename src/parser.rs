@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 use crate::expressions::{
     BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression,
 };
-use crate::statements::{Statement};
+use crate::statements::{Statement, ExpressionStatement};
 
 #[derive(Debug)]
 pub struct ParsingError {
@@ -52,7 +52,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> ParsingResult {
         // https://www.reddit.com/r/rust/comments/94s9ys/why_cant_i_cast_a_dyn_a_into_a_dyn_b_when_b_a/
-        self.expression()
+        self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>)
     }
 
     fn next_token_matches(&mut self, token_types: &[TokenType]) -> bool {
@@ -75,7 +75,7 @@ impl Parser {
         if self.next_token_matches(&[TokenType::Semicolon]) {
             let expr = self.expression()?;
             self.tokens.next().unwrap();
-            Ok(expr)
+            Ok(Box::new(ExpressionStatement::new(expr))) // NOTE why does this work but current line 23 'as Box<dyn ...' doesn't?
         } else {
             Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement))
         }
