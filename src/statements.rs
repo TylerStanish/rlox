@@ -64,6 +64,15 @@ pub struct IfStatement {
     pub body: Box<dyn Statement>,
 }
 
+impl IfStatement {
+    pub fn new(condition: Box<dyn Expression>, body: Box<dyn Statement>) -> Self {
+        Self {
+            condition,
+            body,
+        }
+    }
+}
+
 impl Statement for IfStatement {
     fn eval_statement(&self) {
         let res: bool = self.condition.eval().into();

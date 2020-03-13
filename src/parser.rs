@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 use crate::expressions::{
     BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression,
 };
-use crate::statements::{Statement, ExpressionStatement, PrintStatement};
+use crate::statements::{Statement, ExpressionStatement, PrintStatement, IfStatement};
 
 #[derive(Debug)]
 pub struct ParsingError {
@@ -32,7 +32,6 @@ pub enum ParsingErrorPriority {
     Equality,
     */
     Binary,
-    Expression,
     Statement, // = 7, highest priority
 }
 
@@ -53,10 +52,17 @@ impl Parser {
     pub fn parse(&mut self) -> Vec<ParsingResult> {
         // https://www.reddit.com/r/rust/comments/94s9ys/why_cant_i_cast_a_dyn_a_into_a_dyn_b_when_b_a/
         let mut statements = Vec::new();
-        while self.tokens.peek().is_some() {
+        while !self.is_at_end() {
             statements.push(self.statement());
         }
         statements
+    }
+
+    fn is_at_end(&mut self) -> bool {
+        match self.tokens.peek() {
+            Some(token) => token.token_type == TokenType::Eof,
+            None => true,
+        }
     }
 
     fn next_token_matches(&mut self, token_types: &[TokenType]) -> bool {
@@ -68,14 +74,17 @@ impl Parser {
 
     fn statement(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Print]) {
-            self.tokens.next().unwrap();
-            let res = self.print_statement();
-            res
+            self.tokens.next().unwrap(); // consume 'print'
+            self.print_statement()
+        } else if self.next_token_matches(&[TokenType::If]) {
+            self.tokens.next().unwrap(); // consume 'if'
+            self.if_statement()
         } else {
             let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
             if !self.next_token_matches(&[TokenType::Semicolon]) {
-                return Err(ParsingError::new(None, "Expected ';' after expression statement".to_string(), ParsingErrorPriority::Statement));
+                return Err(ParsingError::new(None, format!("Expected ';' after expression statement").to_string(), ParsingErrorPriority::Statement));
             }
+            self.tokens.next().unwrap();
             res
         }
     }
@@ -85,7 +94,22 @@ impl Parser {
         if !self.next_token_matches(&[TokenType::Semicolon]) {
             return Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement));
         }
+        self.tokens.next().unwrap();
         Ok(Box::new(PrintStatement::new(expr)))
+    }
+
+    fn if_statement(&mut self) -> ParsingResult {
+        if self.next_token_matches(&[TokenType::LeftParen]) {
+            return Err(ParsingError::new(None, "Expected '(' after 'if'".to_string(), ParsingErrorPriority::Statement));
+        }
+        self.tokens.next().unwrap(); // consume (
+        let condition = self.expression()?;
+        if self.next_token_matches(&[TokenType::RightParen]) {
+            return Err(ParsingError::new(None, "Expected ')' after if condition".to_string(), ParsingErrorPriority::Statement));
+        }
+        self.tokens.next().unwrap(); // consume )
+        let body = self.expression()?;
+        Ok(Box::new(IfStatement::new(condition, body)))
     }
 
     fn expression(&mut self) -> ExpressionParsingResult {
