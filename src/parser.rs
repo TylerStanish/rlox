@@ -99,16 +99,24 @@ impl Parser {
     }
 
     fn if_statement(&mut self) -> ParsingResult {
-        if self.next_token_matches(&[TokenType::LeftParen]) {
+        if !self.next_token_matches(&[TokenType::LeftParen]) {
             return Err(ParsingError::new(None, "Expected '(' after 'if'".to_string(), ParsingErrorPriority::Statement));
         }
         self.tokens.next().unwrap(); // consume (
         let condition = self.expression()?;
-        if self.next_token_matches(&[TokenType::RightParen]) {
+        if !self.next_token_matches(&[TokenType::RightParen]) {
             return Err(ParsingError::new(None, "Expected ')' after if condition".to_string(), ParsingErrorPriority::Statement));
         }
         self.tokens.next().unwrap(); // consume )
-        let body = self.expression()?;
+        if !self.next_token_matches(&[TokenType::LeftBrace]) {
+            return Err(ParsingError::new(None, "Expected '{' after ')' in if statement".to_string(), ParsingErrorPriority::Statement));
+        }
+        self.tokens.next().unwrap(); // consume {
+        let body = self.statement()?;
+        if !self.next_token_matches(&[TokenType::RightBrace]) {
+            return Err(ParsingError::new(None, "Expected '}' after if statement body".to_string(), ParsingErrorPriority::Statement));
+        }
+        self.tokens.next().unwrap(); // consume }
         Ok(Box::new(IfStatement::new(condition, body)))
     }
 
