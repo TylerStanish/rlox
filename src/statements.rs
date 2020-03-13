@@ -1,7 +1,10 @@
+use std::fmt;
+use std::fmt::Formatter;
+
 use crate::expressions::{Expression};
 
 
-pub trait Statement {
+pub trait Statement: fmt::Display {
     //fn eval(&self) -> Option<LoxObject>;
     fn eval_statement(&self);
     //fn expression(&self) -> Box<dyn Expression>;
@@ -25,6 +28,13 @@ impl Statement for ExpressionStatement {
     }
 }
 
+impl fmt::Display for ExpressionStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.expr)
+    }
+}
+
+
 pub struct PrintStatement {
     pub expr: Box<dyn Expression>,
 }
@@ -43,6 +53,12 @@ impl Statement for PrintStatement {
     }
 }
 
+impl fmt::Display for PrintStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "print {};", self.expr)
+    }
+}
+
 pub struct IfStatement {
     pub condition: Box<dyn Expression>,
     pub body: Box<dyn Statement>,
@@ -54,5 +70,11 @@ impl Statement for IfStatement {
         if res {
             self.body.eval_statement();
         }
+    }
+}
+
+impl fmt::Display for IfStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "if ({}) {{ {} }}", self.condition, self.body)
     }
 }
