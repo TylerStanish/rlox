@@ -281,3 +281,25 @@ impl Parser {
         }
     }
 }
+
+mod tests {
+    #[cfg(test)]
+    use super::*;
+    use crate::scanner::Scanner;
+    #[cfg(test)]
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_string_literal_parsing() {
+        let input = r#"
+            "hi";
+        "#
+        .trim();
+        let token_stream = Scanner::new(input).scan().unwrap();
+        let actual_ast = Parser::new(token_stream).parse();
+        let expected_ast = vec![
+            Ok(ExpressionStatement::new(Box::new(LiteralExpression::new(Token::new(TokenType::StringLiteral("hi".to_string()), 1))))),
+        ];
+        assert_eq!(expected_ast, actual_ast);
+    }
+}
