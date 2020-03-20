@@ -1,6 +1,7 @@
 use crate::expressions::{Expression, LoxObject};
 
 
+#[derive(PartialEq, Debug)]
 pub enum Statement {
     StatementExpression(Expression),
     StatementPrint(Expression),

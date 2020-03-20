@@ -31,6 +31,7 @@ impl From<LoxObject> for bool {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub enum Expression {
     ExprBinary(Token, Box<Expression>, Box<Expression>),
     ExprUnary(Token, Box<Expression>),

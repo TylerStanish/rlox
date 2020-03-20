@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 use crate::expressions::Expression;
 use crate::statements::Statement;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ParsingError {
     pub token: Option<Token>,
     pub message: String,
