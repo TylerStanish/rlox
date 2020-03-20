@@ -15,7 +15,11 @@ pub struct ParsingError {
 
 impl ParsingError {
     pub fn new(token: Option<Token>, message: String, priority: ParsingErrorPriority) -> Self {
-        ParsingError { token, message, priority }
+        ParsingError {
+            token,
+            message,
+            priority,
+        }
     }
 }
 
@@ -82,16 +86,30 @@ impl Parser {
     fn var_declaration(&mut self) -> ParsingResult {
         let ident = match &self.tokens.peek().unwrap().token_type {
             TokenType::Identifier(ident) => ident.clone(),
-            _ => return Err(ParsingError::new(None, format!("Expected identifier after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+            _ => {
+                return Err(ParsingError::new(
+                    None,
+                    format!("Expected identifier after 'var' declaration").to_string(),
+                    ParsingErrorPriority::Statement,
+                ))
+            }
         };
         self.tokens.next().unwrap();
         if !&self.next_token_matches(&[TokenType::Equal]) {
-            return Err(ParsingError::new(None, format!("Expected '=' after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+            return Err(ParsingError::new(
+                None,
+                format!("Expected '=' after 'var' declaration").to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume '='
         let val = self.expression()?;
         if !self.next_token_matches(&[TokenType::Semicolon]) {
-            return Err(ParsingError::new(None, format!("Expected ';' after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+            return Err(ParsingError::new(
+                None,
+                format!("Expected ';' after 'var' declaration").to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume ';'
         Ok(Statement::StatementDeclaration(ident.clone(), val))
@@ -108,7 +126,11 @@ impl Parser {
             //let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
             let res = self.expression()?;
             if !self.next_token_matches(&[TokenType::Semicolon]) {
-                return Err(ParsingError::new(None, format!("Expected ';' after expression statement").to_string(), ParsingErrorPriority::Statement));
+                return Err(ParsingError::new(
+                    None,
+                    format!("Expected ';' after expression statement").to_string(),
+                    ParsingErrorPriority::Statement,
+                ));
             }
             self.tokens.next().unwrap();
             Ok(Statement::StatementExpression(res))
@@ -118,7 +140,11 @@ impl Parser {
     fn print_statement(&mut self) -> ParsingResult {
         let expr = self.expression()?;
         if !self.next_token_matches(&[TokenType::Semicolon]) {
-            return Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement));
+            return Err(ParsingError::new(
+                None,
+                "Expected ';' after print statement".to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap();
         Ok(Statement::StatementPrint(expr))
@@ -126,21 +152,37 @@ impl Parser {
 
     fn if_statement(&mut self) -> ParsingResult {
         if !self.next_token_matches(&[TokenType::LeftParen]) {
-            return Err(ParsingError::new(None, "Expected '(' after 'if'".to_string(), ParsingErrorPriority::Statement));
+            return Err(ParsingError::new(
+                None,
+                "Expected '(' after 'if'".to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume (
         let condition = self.expression()?;
         if !self.next_token_matches(&[TokenType::RightParen]) {
-            return Err(ParsingError::new(None, "Expected ')' after if condition".to_string(), ParsingErrorPriority::Statement));
+            return Err(ParsingError::new(
+                None,
+                "Expected ')' after if condition".to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume )
         if !self.next_token_matches(&[TokenType::LeftBrace]) {
-            return Err(ParsingError::new(None, "Expected '{' after ')' in if statement".to_string(), ParsingErrorPriority::Statement));
+            return Err(ParsingError::new(
+                None,
+                "Expected '{' after ')' in if statement".to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume {
         let body = self.statement()?;
         if !self.next_token_matches(&[TokenType::RightBrace]) {
-            return Err(ParsingError::new(None, "Expected '}' after if statement body".to_string(), ParsingErrorPriority::Statement));
+            return Err(ParsingError::new(
+                None,
+                "Expected '}' after if statement body".to_string(),
+                ParsingErrorPriority::Statement,
+            ));
         }
         self.tokens.next().unwrap(); // consume }
         Ok(Statement::StatementIf(condition, body.into()))
@@ -194,11 +236,15 @@ impl Parser {
             Ok(expr) => Ok(expr),
             Err(err) => {
                 if err.priority < priority_here {
-                    Err(ParsingError::new(Some(operator.clone()), message, err.priority))
+                    Err(ParsingError::new(
+                        Some(operator.clone()),
+                        message,
+                        err.priority,
+                    ))
                 } else {
                     Err(err)
                 }
-            },
+            }
         }
     }
 
@@ -216,7 +262,8 @@ impl Parser {
                 format!("Expected expression after '{}'", operator),
                 ParsingErrorPriority::Binary,
             )?;
-            expression = Expression::ExprBinary(operator.clone(), expression.into(), right_comparison.into())
+            expression =
+                Expression::ExprBinary(operator.clone(), expression.into(), right_comparison.into())
         }
         Ok(expression)
     }
@@ -230,7 +277,7 @@ impl Parser {
                 format!("Expected expression after unary operator '{}'", operator),
                 ParsingErrorPriority::Unary,
             )?;
-            return Ok(Expression::ExprUnary(operator, operand.into()))
+            return Ok(Expression::ExprUnary(operator, operand.into()));
         }
         self.primary()
     }
@@ -258,13 +305,11 @@ impl Parser {
                         ))
                     }
                 }
-                TokenType::Eof => {
-                    Err(ParsingError::new(
-                        None,
-                        "Unexpected EOF".to_string(),
-                        ParsingErrorPriority::Primary,
-                    ))
-                }
+                TokenType::Eof => Err(ParsingError::new(
+                    None,
+                    "Unexpected EOF".to_string(),
+                    ParsingErrorPriority::Primary,
+                )),
                 other => {
                     // unexpected token
                     self.synchronize();
@@ -278,7 +323,9 @@ impl Parser {
             // empty
             //None => Err(ParsingError::new(None, "Expected expression".to_string(), ParsingErrorPriority::Primary)),
             //None => Ok(Box::new(LiteralExpression::new(Token::new(TokenType::Nil, 0)))),
-            None => panic!("Lexing error, lexer should put TokenType::Eof at the end of the lexing stage"),
+            None => panic!(
+                "Lexing error, lexer should put TokenType::Eof at the end of the lexing stage"
+            ),
         }
     }
 
@@ -319,9 +366,9 @@ mod tests {
         .trim();
         let token_stream = Scanner::new(input).scan().unwrap();
         let actual_ast = Parser::new(token_stream).parse();
-        let expected_ast = vec![
-            Ok(Statement::StatementExpression(Expression::ExprLiteral(Token::new(TokenType::StringLiteral("hi".to_string()), 1))))
-        ];
+        let expected_ast = vec![Ok(Statement::StatementExpression(Expression::ExprLiteral(
+            Token::new(TokenType::StringLiteral("hi".to_string()), 1),
+        )))];
         assert_eq!(expected_ast, actual_ast);
     }
     #[test]
@@ -332,19 +379,16 @@ mod tests {
         .trim();
         let token_stream = Scanner::new(input).scan().unwrap();
         let actual_ast = Parser::new(token_stream).parse();
-        let expected_ast = vec![
-            Ok(Statement::StatementExpression(
-                Expression::ExprBinary(
-                    Token::new(TokenType::Plus, 1),
-                    Expression::ExprBinary(
-                        Token::new(TokenType::Plus, 1),
-                        Expression::ExprLiteral(Token::new(TokenType::Number(1.0), 1)).into(),
-                        Expression::ExprLiteral(Token::new(TokenType::Number(2.0), 1)).into(),
-                    ).into(),
-                    Expression::ExprLiteral(Token::new(TokenType::Number(3.0), 1)).into(),
-                )
-            )),
-        ];
+        let expected_ast = vec![Ok(Statement::StatementExpression(Expression::ExprBinary(
+            Token::new(TokenType::Plus, 1),
+            Expression::ExprBinary(
+                Token::new(TokenType::Plus, 1),
+                Expression::ExprLiteral(Token::new(TokenType::Number(1.0), 1)).into(),
+                Expression::ExprLiteral(Token::new(TokenType::Number(2.0), 1)).into(),
+            )
+            .into(),
+            Expression::ExprLiteral(Token::new(TokenType::Number(3.0), 1)).into(),
+        )))];
         assert_eq!(expected_ast, actual_ast);
     }
     #[test]
@@ -355,76 +399,59 @@ mod tests {
         .trim();
         let token_stream = Scanner::new(input).scan().unwrap();
         let actual_ast = Parser::new(token_stream).parse();
-        let expected_ast: Vec<ParsingResult> = vec![
-            Ok(
-                Statement::StatementExpression(
+        let expected_ast: Vec<ParsingResult> =
+            vec![Ok(Statement::StatementExpression(Expression::ExprBinary(
+                Token {
+                    token_type: TokenType::Plus,
+                    line_number: 1,
+                },
+                Expression::ExprBinary(
+                    Token {
+                        token_type: TokenType::Minus,
+                        line_number: 1,
+                    },
+                    Expression::ExprLiteral(Token {
+                        token_type: TokenType::Number(1.0),
+                        line_number: 1,
+                    })
+                    .into(),
                     Expression::ExprBinary(
                         Token {
-                            token_type: TokenType::Plus,
+                            token_type: TokenType::Slash,
                             line_number: 1,
                         },
                         Expression::ExprBinary(
                             Token {
-                                token_type: TokenType::Minus,
+                                token_type: TokenType::Star,
                                 line_number: 1,
                             },
-                            Expression::ExprLiteral(
-                                Token {
-                                    token_type: TokenType::Number(
-                                        1.0,
-                                    ),
-                                    line_number: 1,
-                                },
-                            ).into(),
-                            Expression::ExprBinary(
-                                Token {
-                                    token_type: TokenType::Slash,
-                                    line_number: 1,
-                                },
-                                Expression::ExprBinary(
-                                    Token {
-                                        token_type: TokenType::Star,
-                                        line_number: 1,
-                                    },
-                                    Expression::ExprLiteral(
-                                        Token {
-                                            token_type: TokenType::Number(
-                                                2.0,
-                                            ),
-                                            line_number: 1,
-                                        },
-                                    ).into(),
-                                    Expression::ExprLiteral(
-                                        Token {
-                                            token_type: TokenType::Number(
-                                                3.0,
-                                            ),
-                                            line_number: 1,
-                                        },
-                                    ).into(),
-                                ).into(),
-                                Expression::ExprLiteral(
-                                    Token {
-                                        token_type: TokenType::Number(
-                                            4.0,
-                                        ),
-                                        line_number: 1,
-                                    },
-                                ).into(),
-                            ).into(),
-                        ).into(),
-                        Expression::ExprLiteral(
-                            Token {
-                                token_type: TokenType::Number(
-                                    5.0,
-                                ),
+                            Expression::ExprLiteral(Token {
+                                token_type: TokenType::Number(2.0),
                                 line_number: 1,
-                            },
-                        ).into(),
-                    ),
-                ),
-            ),
-        ];
+                            })
+                            .into(),
+                            Expression::ExprLiteral(Token {
+                                token_type: TokenType::Number(3.0),
+                                line_number: 1,
+                            })
+                            .into(),
+                        )
+                        .into(),
+                        Expression::ExprLiteral(Token {
+                            token_type: TokenType::Number(4.0),
+                            line_number: 1,
+                        })
+                        .into(),
+                    )
+                    .into(),
+                )
+                .into(),
+                Expression::ExprLiteral(Token {
+                    token_type: TokenType::Number(5.0),
+                    line_number: 1,
+                })
+                .into(),
+            )))];
         assert_eq!(expected_ast, actual_ast);
     }
 }

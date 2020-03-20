@@ -261,7 +261,7 @@ impl Scanner {
                             TokenType::Eof => return Ok(self.tokens),
                             _ => (),
                         }
-                    },
+                    }
                     _ => (),
                 },
                 Err(e) => return Err(e),

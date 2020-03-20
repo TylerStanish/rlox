@@ -29,7 +29,7 @@ pub fn execute(code: &str) {
                     println!("{}", err.message);
                     return;
                 }
-            }
+            },
         }
     }
 }

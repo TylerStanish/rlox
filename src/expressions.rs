@@ -47,34 +47,34 @@ impl Expression {
                     let left_num: f64 = lhs.eval().into();
                     let right_num: f64 = rhs.eval().into();
                     LoxObject::LoxNumber(left_num + right_num)
-                },
+                }
                 TokenType::Minus => {
                     let left_num: f64 = lhs.eval().into();
                     let right_num: f64 = rhs.eval().into();
                     LoxObject::LoxNumber(left_num - right_num)
-                },
+                }
                 TokenType::Star => {
                     let left_num: f64 = lhs.eval().into();
                     let right_num: f64 = rhs.eval().into();
                     LoxObject::LoxNumber(left_num * right_num)
-                },
+                }
                 TokenType::Slash => {
                     let left_num: f64 = lhs.eval().into();
                     let right_num: f64 = rhs.eval().into();
                     LoxObject::LoxNumber(left_num / right_num)
-                },
-                other => panic!("{} is not a binary operator", other)
-            }
+                }
+                other => panic!("{} is not a binary operator", other),
+            },
             Expression::ExprUnary(op_tok, operand) => match &op_tok.token_type {
                 TokenType::Bang => {
                     let res: bool = operand.eval().into();
                     LoxObject::LoxBoolean(res)
-                },
+                }
                 TokenType::Minus => {
                     let res: f64 = operand.eval().into();
                     LoxObject::LoxNumber(-res)
-                },
-                other => panic!("{} is not a unary operator", other)
+                }
+                other => panic!("{} is not a unary operator", other),
             },
             Expression::ExprGrouping(expr) => expr.eval(),
             Expression::ExprLiteral(literal) => match &literal.token_type {
@@ -84,7 +84,7 @@ impl Expression {
                 TokenType::False => LoxObject::LoxBoolean(false),
                 TokenType::Nil => LoxObject::LoxNil,
                 other => panic!("Expected literal, found {}", other),
-            }
+            },
         }
     }
 }
