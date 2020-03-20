@@ -324,4 +324,107 @@ mod tests {
         ];
         assert_eq!(expected_ast, actual_ast);
     }
+    #[test]
+    fn test_addition() {
+        let input = r#"
+            1 + 2 + 3;
+        "#
+        .trim();
+        let token_stream = Scanner::new(input).scan().unwrap();
+        let actual_ast = Parser::new(token_stream).parse();
+        let expected_ast = vec![
+            Ok(Statement::StatementExpression(
+                Expression::ExprBinary(
+                    Token::new(TokenType::Plus, 1),
+                    Expression::ExprBinary(
+                        Token::new(TokenType::Plus, 1),
+                        Expression::ExprLiteral(Token::new(TokenType::Number(1.0), 1)).into(),
+                        Expression::ExprLiteral(Token::new(TokenType::Number(2.0), 1)).into(),
+                    ).into(),
+                    Expression::ExprLiteral(Token::new(TokenType::Number(3.0), 1)).into(),
+                )
+            )),
+        ];
+        assert_eq!(expected_ast, actual_ast);
+    }
+    #[test]
+    fn test_arithmetic() {
+        let input = r#"
+            1 - 2 * 3 / 4 + 5;
+        "#
+        .trim();
+        let token_stream = Scanner::new(input).scan().unwrap();
+        let actual_ast = Parser::new(token_stream).parse();
+        let expected_ast: Vec<ParsingResult> = vec![
+            Ok(
+                Statement::StatementExpression(
+                    Expression::ExprBinary(
+                        Token {
+                            token_type: TokenType::Plus,
+                            line_number: 1,
+                        },
+                        Expression::ExprBinary(
+                            Token {
+                                token_type: TokenType::Minus,
+                                line_number: 1,
+                            },
+                            Expression::ExprLiteral(
+                                Token {
+                                    token_type: TokenType::Number(
+                                        1.0,
+                                    ),
+                                    line_number: 1,
+                                },
+                            ).into(),
+                            Expression::ExprBinary(
+                                Token {
+                                    token_type: TokenType::Slash,
+                                    line_number: 1,
+                                },
+                                Expression::ExprBinary(
+                                    Token {
+                                        token_type: TokenType::Star,
+                                        line_number: 1,
+                                    },
+                                    Expression::ExprLiteral(
+                                        Token {
+                                            token_type: TokenType::Number(
+                                                2.0,
+                                            ),
+                                            line_number: 1,
+                                        },
+                                    ).into(),
+                                    Expression::ExprLiteral(
+                                        Token {
+                                            token_type: TokenType::Number(
+                                                3.0,
+                                            ),
+                                            line_number: 1,
+                                        },
+                                    ).into(),
+                                ).into(),
+                                Expression::ExprLiteral(
+                                    Token {
+                                        token_type: TokenType::Number(
+                                            4.0,
+                                        ),
+                                        line_number: 1,
+                                    },
+                                ).into(),
+                            ).into(),
+                        ).into(),
+                        Expression::ExprLiteral(
+                            Token {
+                                token_type: TokenType::Number(
+                                    5.0,
+                                ),
+                                line_number: 1,
+                            },
+                        ).into(),
+                    ),
+                ),
+            ),
+        ];
+        assert_eq!(expected_ast, actual_ast);
+    }
 }
