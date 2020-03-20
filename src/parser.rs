@@ -3,10 +3,8 @@ use crate::tokens::TokenType;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use crate::expressions::{
-    BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression,
-};
-use crate::statements::{Statement, ExpressionStatement, PrintStatement, IfStatement};
+use crate::expressions::Expression;
+use crate::statements::Statement;
 
 #[derive(Debug)]
 pub struct ParsingError {
@@ -39,8 +37,8 @@ pub struct Parser {
     tokens: Peekable<IntoIter<Token>>,
 }
 
-type ParsingResult = Result<Box<dyn Statement>, ParsingError>;
-type ExpressionParsingResult = Result<Box<dyn Expression>, ParsingError>;
+type ParsingResult = Result<Statement, ParsingError>;
+type ExpressionParsingResult = Result<Expression, ParsingError>;
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -53,7 +51,7 @@ impl Parser {
         // https://www.reddit.com/r/rust/comments/94s9ys/why_cant_i_cast_a_dyn_a_into_a_dyn_b_when_b_a/
         let mut statements = Vec::new();
         while !self.is_at_end() {
-            statements.push(self.statement());
+            statements.push(self.declaration());
         }
         statements
     }
@@ -72,6 +70,23 @@ impl Parser {
         }
     }
 
+    fn declaration(&mut self) -> ParsingResult {
+        if self.next_token_matches(&[TokenType::Var]) {
+            self.tokens.next().unwrap(); // consume the 'var'
+            self.var_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> ParsingResult {
+        let ident = match &self.tokens.peek().unwrap().token_type {
+            TokenType::Identifier(ident) => ident,
+            _ => return Err(ParsingError::new(None, format!("Expected identifier after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+        };
+        unimplemented!();
+    }
+
     fn statement(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Print]) {
             self.tokens.next().unwrap(); // consume 'print'
@@ -80,12 +95,13 @@ impl Parser {
             self.tokens.next().unwrap(); // consume 'if'
             self.if_statement()
         } else {
-            let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
+            //let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
+            let res = self.expression()?;
             if !self.next_token_matches(&[TokenType::Semicolon]) {
                 return Err(ParsingError::new(None, format!("Expected ';' after expression statement").to_string(), ParsingErrorPriority::Statement));
             }
             self.tokens.next().unwrap();
-            res
+            Ok(Statement::StatementExpression(res))
         }
     }
 
@@ -95,7 +111,7 @@ impl Parser {
             return Err(ParsingError::new(None, "Expected ';' after print statement".to_string(), ParsingErrorPriority::Statement));
         }
         self.tokens.next().unwrap();
-        Ok(Box::new(PrintStatement::new(expr)))
+        Ok(Statement::StatementPrint(expr))
     }
 
     fn if_statement(&mut self) -> ParsingResult {
@@ -117,12 +133,12 @@ impl Parser {
             return Err(ParsingError::new(None, "Expected '}' after if statement body".to_string(), ParsingErrorPriority::Statement));
         }
         self.tokens.next().unwrap(); // consume }
-        Ok(Box::new(IfStatement::new(condition, body)))
+        Ok(Statement::StatementIf(condition, body.into()))
     }
 
     fn expression(&mut self) -> ExpressionParsingResult {
         if self.next_token_matches(&[TokenType::Eof]) {
-            Ok(Box::new(LiteralExpression::new(self.tokens.next().unwrap())))
+            Ok(Expression::ExprLiteral(self.tokens.next().unwrap()))
         } else {
             self.equality()
         }
@@ -190,11 +206,7 @@ impl Parser {
                 format!("Expected expression after '{}'", operator),
                 ParsingErrorPriority::Binary,
             )?;
-            expression = Box::new(BinaryExpression::new(
-                expression,
-                operator.clone(),
-                right_comparison,
-            ));
+            expression = Expression::ExprBinary(operator.clone(), expression.into(), right_comparison.into())
         }
         Ok(expression)
     }
@@ -208,7 +220,7 @@ impl Parser {
                 format!("Expected expression after unary operator '{}'", operator),
                 ParsingErrorPriority::Unary,
             )?;
-            return Ok(Box::new(UnaryExpression::new(operator, operand)));
+            return Ok(Expression::ExprUnary(operator, operand.into()))
         }
         self.primary()
     }
@@ -217,16 +229,16 @@ impl Parser {
         match &self.tokens.next() {
             Some(token) => match &token.token_type {
                 TokenType::False | TokenType::True | TokenType::Nil => {
-                    Ok(Box::new(LiteralExpression::new(token.clone())))
+                    Ok(Expression::ExprLiteral(token.clone()))
                 }
                 TokenType::Number(_) | TokenType::StringLiteral(_) => {
-                    Ok(Box::new(LiteralExpression::new(token.clone())))
+                    Ok(Expression::ExprLiteral(token.clone()))
                 }
                 TokenType::LeftParen => {
                     let expression = self.expression()?;
                     if self.next_token_matches(&[TokenType::RightParen]) {
                         self.tokens.next().unwrap();
-                        Ok(Box::new(GroupingExpression::new(expression)))
+                        Ok(Expression::ExprGrouping(expression.into()))
                     } else {
                         self.synchronize();
                         Err(ParsingError::new(
@@ -298,7 +310,7 @@ mod tests {
         let token_stream = Scanner::new(input).scan().unwrap();
         let actual_ast = Parser::new(token_stream).parse();
         let expected_ast = vec![
-            Ok(ExpressionStatement::new(Box::new(LiteralExpression::new(Token::new(TokenType::StringLiteral("hi".to_string()), 1))))),
+            Ok(Statement::StatementExpression(Expression::ExprLiteral(Token::new(TokenType::StringLiteral("hi".to_string()), 1))))
         ];
         assert_eq!(expected_ast, actual_ast);
     }

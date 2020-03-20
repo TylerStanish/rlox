@@ -19,7 +19,7 @@ pub fn execute(code: &str) {
     let mut parser = Parser::new(token_stream.unwrap());
     for stmt_res in parser.parse() {
         match stmt_res {
-            Ok(stmt) => stmt.eval_statement(),
+            Ok(stmt) => stmt.eval(),
             Err(err) => match err.token {
                 Some(token) => {
                     println!("{} at line {}", err.message, token.line_number);

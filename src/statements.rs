@@ -1,7 +1,4 @@
-use std::fmt;
-use std::fmt::Formatter;
-
-use crate::expressions::{Expression};
+use crate::expressions::{Expression, LoxObject};
 
 
 pub enum Statement {
@@ -11,15 +8,18 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn eval(&self) {
+    pub fn eval(&self) {
         match self {
-            Statement::StatementExpression(expr) => expr.eval(),
-            Statement::PrintStatement(expr) => println!("{}", expr.eval()),
-            Statement::IfStatement(condition, body) => {
-                if condition.eval() {
-                    body.eval();
+            Statement::StatementExpression(expr) => {
+                expr.eval();
+            },
+            Statement::StatementPrint(expr) => println!("{:?}", expr.eval()),
+            Statement::StatementIf(condition, body) => {
+                match condition.eval() {
+                    LoxObject::LoxBoolean(b) => if b { body.eval(); },
+                    other => panic!("Expected boolean condition in if statement, found {:?}", other),
                 }
             }
-        }
+        };
     }
 }
