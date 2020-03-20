@@ -115,6 +115,7 @@ impl Parser {
         Ok(Statement::StatementDeclaration(ident.clone(), val))
     }
 
+    /// TODO make this a match over self.tokens.peek() instead of if-else
     fn statement(&mut self) -> ParsingResult {
         if self.next_token_matches(&[TokenType::Print]) {
             self.tokens.next().unwrap(); // consume 'print'
@@ -122,6 +123,9 @@ impl Parser {
         } else if self.next_token_matches(&[TokenType::If]) {
             self.tokens.next().unwrap(); // consume 'if'
             self.if_statement()
+        } else if self.next_token_matches(&[TokenType::LeftBrace]) {
+            self.tokens.next().unwrap(); // consume '{'
+            self.block()
         } else {
             //let res = self.expression().map(|expr| Box::new(ExpressionStatement::new(expr)) as Box<dyn Statement>);
             let res = self.expression()?;
@@ -148,6 +152,19 @@ impl Parser {
         }
         self.tokens.next().unwrap();
         Ok(Statement::StatementPrint(expr))
+    }
+
+    fn block(&mut self) -> ParsingResult {
+        let mut statements = Vec::new();
+        while !self.is_at_end() && !self.next_token_matches(&[TokenType::RightBrace]) {
+            let stmt = self.declaration()?;
+            statements.push(stmt);
+        }
+        if !self.next_token_matches(&[TokenType::RightBrace]) {
+            return Err(ParsingError::new(None, "Expected '}' at end of block".to_string(), ParsingErrorPriority::Statement));
+        }
+        self.tokens.next().unwrap(); // consume '}'
+        Ok(Statement::StatementBlock(statements))
     }
 
     fn if_statement(&mut self) -> ParsingResult {

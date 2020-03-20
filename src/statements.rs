@@ -7,6 +7,7 @@ pub enum Statement {
     StatementPrint(Expression),
     StatementIf(Expression, Box<Statement>),
     StatementDeclaration(String, Expression),
+    StatementBlock(Vec<Statement>),
     // TODO make these Strings Tokens?
 }
 
@@ -27,10 +28,15 @@ impl Statement {
                     "Expected boolean condition in if statement, found {:?}",
                     other
                 ),
-            },
+            }
             Statement::StatementDeclaration(ident, val) => {
                 let evaluated_expr = val.eval(scope);
                 scope.insert(ident.clone(), evaluated_expr);
+            }
+            Statement::StatementBlock(statements) => {
+                for statement in statements {
+                    statement.eval(scope);
+                }
             }
         };
     }
