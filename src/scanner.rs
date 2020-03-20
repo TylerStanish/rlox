@@ -283,7 +283,10 @@ mod tests {
         "#
         .trim();
         let actual_token_stream = Scanner::new(input).scan().unwrap();
-        let expected_token_stream = vec![Token::new(TokenType::StringLiteral("hi".to_string()), 1)];
+        let expected_token_stream = vec![
+            Token::new(TokenType::StringLiteral("hi".to_string()), 1),
+            Token::new(TokenType::Eof, 1),
+        ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
     #[test]
@@ -310,6 +313,7 @@ mod tests {
             Token::new(TokenType::RightParen, 1),
             Token::new(TokenType::RightParen, 1),
             Token::new(TokenType::RightParen, 1),
+            Token::new(TokenType::Eof, 1),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -328,6 +332,7 @@ mod tests {
             Token::new(TokenType::LeftBrace, 3),
             Token::new(TokenType::StringLiteral("how are you?".to_string()), 3),
             Token::new(TokenType::RightBrace, 3),
+            Token::new(TokenType::Eof, 3),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -363,6 +368,7 @@ mod tests {
             Token::new(TokenType::Minus, 3),
             Token::new(TokenType::Identifier("a".to_string()), 3),
             Token::new(TokenType::Semicolon, 3),
+            Token::new(TokenType::Eof, 3),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -394,6 +400,7 @@ mod tests {
             Token::new(TokenType::Identifier("B".to_string()), 1),
             Token::new(TokenType::LeftBrace, 1),
             Token::new(TokenType::RightBrace, 1),
+            Token::new(TokenType::Eof, 1),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -413,6 +420,7 @@ mod tests {
             Token::new(TokenType::Number(123.0), 1),
             Token::new(TokenType::Number(456.0), 2),
             Token::new(TokenType::Semicolon, 2),
+            Token::new(TokenType::Eof, 2),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -434,6 +442,7 @@ mod tests {
             Token::new(TokenType::Identifier("abc42def".to_string()), 2),
             Token::new(TokenType::Equal, 2),
             Token::new(TokenType::Number(123.0), 2),
+            Token::new(TokenType::Eof, 2),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -455,6 +464,7 @@ mod tests {
             Token::new(TokenType::Identifier("abc42def".to_string()), 2),
             Token::new(TokenType::Equal, 2),
             Token::new(TokenType::Number(123.0), 2),
+            Token::new(TokenType::Eof, 2),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
@@ -474,6 +484,7 @@ mod tests {
                 TokenType::StringLiteral("text \"in quotes\" can be wrapped with \\\"".to_string()),
                 1,
             ),
+            Token::new(TokenType::Eof, 1),
         ];
         assert_eq!(expected_token_stream, actual_token_stream);
     }
