@@ -7,7 +7,7 @@ pub enum Statement {
     StatementPrint(Expression),
     StatementIf(Expression, Box<Statement>),
     StatementDeclaration(String, Expression),
-    StatementAssigment(Token, Expression),
+    // TODO make these Strings Tokens?
 }
 
 impl Statement {
@@ -32,7 +32,6 @@ impl Statement {
                 let evaluated_expr = val.eval(scope);
                 scope.insert(ident.clone(), evaluated_expr);
             }
-            Statement::StatementAssigment(tok, val) => {}
         };
     }
 }

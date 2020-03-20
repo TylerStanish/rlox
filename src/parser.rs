@@ -192,8 +192,21 @@ impl Parser {
         if self.next_token_matches(&[TokenType::Eof]) {
             Ok(Expression::ExprLiteral(self.tokens.next().unwrap()))
         } else {
-            self.equality()
+            self.assignment()
         }
+    }
+
+    fn assignment(&mut self) -> ExpressionParsingResult {
+        let expr = self.equality()?;
+        if self.next_token_matches(&[TokenType::Equal]) {
+            self.tokens.next().unwrap(); // consume '='
+            let value = self.assignment()?;
+            match &expr {
+                Expression::ExprVariable(tok) => return Ok(Expression::ExprAssigment(tok.clone(), value.into())),
+                _ => return Err(ParsingError::new(None, "Invalid assignment target".to_string(), ParsingErrorPriority::Statement)),
+            }
+        }
+        Ok(expr)
     }
 
     fn equality(&mut self) -> ExpressionParsingResult {

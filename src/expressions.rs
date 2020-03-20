@@ -42,6 +42,8 @@ pub enum Expression {
     ExprLiteral(Token),
     ExprGrouping(Box<Expression>),
     ExprVariable(Token),
+    // TODO make this a Token? Or LoxObject?
+    ExprAssigment(Token, Box<Expression>),
 }
 
 impl Expression {
@@ -97,7 +99,18 @@ impl Expression {
                     }
                     (*scope.get(ident).unwrap()).clone()
                 }
-                other => panic!("Expected identifier, found {}", other)
+                other => panic!("Expected identifier for variable, found {}", other)
+            }
+            Expression::ExprAssigment(tok, val) => match &tok.token_type {
+                TokenType::Identifier(ident) => {
+                    if !scope.contains_key(ident) {
+                        panic!("Undefined variable: {}", tok);
+                    }
+                    let evaluated_expr = val.eval(scope);
+                    scope.insert(ident.clone(), evaluated_expr.clone());
+                    evaluated_expr
+                }
+                other => panic!("Expected identifier in assignment, found {}", other)
             }
         }
     }
