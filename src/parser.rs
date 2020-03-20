@@ -81,10 +81,20 @@ impl Parser {
 
     fn var_declaration(&mut self) -> ParsingResult {
         let ident = match &self.tokens.peek().unwrap().token_type {
-            TokenType::Identifier(ident) => ident,
+            TokenType::Identifier(ident) => ident.clone(),
             _ => return Err(ParsingError::new(None, format!("Expected identifier after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
         };
-        unimplemented!();
+        self.tokens.next().unwrap();
+        if !&self.next_token_matches(&[TokenType::Equal]) {
+            return Err(ParsingError::new(None, format!("Expected '=' after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+        }
+        self.tokens.next().unwrap(); // consume '='
+        let val = self.expression()?;
+        if !self.next_token_matches(&[TokenType::Semicolon]) {
+            return Err(ParsingError::new(None, format!("Expected ';' after 'var' declaration").to_string(), ParsingErrorPriority::Statement))
+        }
+        self.tokens.next().unwrap(); // consume ';'
+        Ok(Statement::StatementDeclaration(ident.clone(), val))
     }
 
     fn statement(&mut self) -> ParsingResult {

@@ -1,11 +1,13 @@
 use crate::expressions::{Expression, LoxObject};
+use crate::tokens::Token;
 
 
 #[derive(PartialEq, Debug)]
 pub enum Statement {
     StatementExpression(Expression),
     StatementPrint(Expression),
-    StatementIf(Expression, Box<Statement>)
+    StatementIf(Expression, Box<Statement>),
+    StatementDeclaration(String, Expression),
 }
 
 impl Statement {
@@ -20,7 +22,10 @@ impl Statement {
                     LoxObject::LoxBoolean(b) => if b { body.eval(); },
                     other => panic!("Expected boolean condition in if statement, found {:?}", other),
                 }
-            }
+            },
+            Statement::StatementDeclaration(ident, val) => {
+
+            },
         };
     }
 }
