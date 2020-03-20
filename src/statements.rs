@@ -1,4 +1,4 @@
-use crate::expressions::{Expression, LoxObject};
+use crate::expressions::{Expression, LoxObject, Environment};
 use crate::tokens::Token;
 
 #[derive(PartialEq, Debug)]
@@ -11,16 +11,16 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn eval(&self) {
+    pub fn eval(&self, scope: &mut Environment) {
         match self {
             Statement::StatementExpression(expr) => {
-                expr.eval();
+                expr.eval(scope);
             }
-            Statement::StatementPrint(expr) => println!("{:?}", expr.eval()),
-            Statement::StatementIf(condition, body) => match condition.eval() {
+            Statement::StatementPrint(expr) => println!("{:?}", expr.eval(scope)),
+            Statement::StatementIf(condition, body) => match condition.eval(scope) {
                 LoxObject::LoxBoolean(b) => {
                     if b {
-                        body.eval();
+                        body.eval(scope);
                     }
                 }
                 other => panic!(
@@ -28,7 +28,10 @@ impl Statement {
                     other
                 ),
             },
-            Statement::StatementDeclaration(ident, val) => {}
+            Statement::StatementDeclaration(ident, val) => {
+                let evaluated_expr = val.eval(scope);
+                scope.insert(ident.clone(), evaluated_expr);
+            }
             Statement::StatementAssigment(tok, val) => {}
         };
     }

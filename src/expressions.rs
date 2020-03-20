@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+
 use crate::tokens::{Token, TokenType};
 
+pub type Environment = HashMap<String, LoxObject>;
+
 /// The builtin types of Lox
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LoxObject {
     LoxNumber(f64),
     LoxString(String),
@@ -37,46 +41,47 @@ pub enum Expression {
     ExprUnary(Token, Box<Expression>),
     ExprLiteral(Token),
     ExprGrouping(Box<Expression>),
+    ExprVariable(Token),
 }
 
 impl Expression {
-    pub fn eval(&self) -> LoxObject {
+    pub fn eval(&self, scope: &mut Environment) -> LoxObject {
         match self {
             Expression::ExprBinary(op_tok, lhs, rhs) => match &op_tok.token_type {
                 TokenType::Plus => {
-                    let left_num: f64 = lhs.eval().into();
-                    let right_num: f64 = rhs.eval().into();
+                    let left_num: f64 = lhs.eval(scope).into();
+                    let right_num: f64 = rhs.eval(scope).into();
                     LoxObject::LoxNumber(left_num + right_num)
                 }
                 TokenType::Minus => {
-                    let left_num: f64 = lhs.eval().into();
-                    let right_num: f64 = rhs.eval().into();
+                    let left_num: f64 = lhs.eval(scope).into();
+                    let right_num: f64 = rhs.eval(scope).into();
                     LoxObject::LoxNumber(left_num - right_num)
                 }
                 TokenType::Star => {
-                    let left_num: f64 = lhs.eval().into();
-                    let right_num: f64 = rhs.eval().into();
+                    let left_num: f64 = lhs.eval(scope).into();
+                    let right_num: f64 = rhs.eval(scope).into();
                     LoxObject::LoxNumber(left_num * right_num)
                 }
                 TokenType::Slash => {
-                    let left_num: f64 = lhs.eval().into();
-                    let right_num: f64 = rhs.eval().into();
+                    let left_num: f64 = lhs.eval(scope).into();
+                    let right_num: f64 = rhs.eval(scope).into();
                     LoxObject::LoxNumber(left_num / right_num)
                 }
                 other => panic!("{} is not a binary operator", other),
             },
             Expression::ExprUnary(op_tok, operand) => match &op_tok.token_type {
                 TokenType::Bang => {
-                    let res: bool = operand.eval().into();
+                    let res: bool = operand.eval(scope).into();
                     LoxObject::LoxBoolean(res)
                 }
                 TokenType::Minus => {
-                    let res: f64 = operand.eval().into();
+                    let res: f64 = operand.eval(scope).into();
                     LoxObject::LoxNumber(-res)
                 }
                 other => panic!("{} is not a unary operator", other),
             },
-            Expression::ExprGrouping(expr) => expr.eval(),
+            Expression::ExprGrouping(expr) => expr.eval(scope),
             Expression::ExprLiteral(literal) => match &literal.token_type {
                 TokenType::StringLiteral(s) => LoxObject::LoxString(s.clone()),
                 TokenType::Number(n) => LoxObject::LoxNumber(*n),
@@ -85,6 +90,15 @@ impl Expression {
                 TokenType::Nil => LoxObject::LoxNil,
                 other => panic!("Expected literal, found {}", other),
             },
+            Expression::ExprVariable(var) => match &var.token_type {
+                TokenType::Identifier(ident) => {
+                    if !scope.contains_key(ident) {
+                        panic!("Invalid identifier {}", ident);
+                    }
+                    (*scope.get(ident).unwrap()).clone()
+                }
+                other => panic!("Expected identifier, found {}", other)
+            }
         }
     }
 }

@@ -291,6 +291,9 @@ impl Parser {
                 TokenType::Number(_) | TokenType::StringLiteral(_) => {
                     Ok(Expression::ExprLiteral(token.clone()))
                 }
+                TokenType::Identifier(_) => {
+                    Ok(Expression::ExprVariable(token.clone()))
+                }
                 TokenType::LeftParen => {
                     let expression = self.expression()?;
                     if self.next_token_matches(&[TokenType::RightParen]) {
@@ -369,6 +372,17 @@ mod tests {
         let expected_ast = vec![Ok(Statement::StatementExpression(Expression::ExprLiteral(
             Token::new(TokenType::StringLiteral("hi".to_string()), 1),
         )))];
+        assert_eq!(expected_ast, actual_ast);
+    }
+    #[test]
+    fn test_declaration() {
+        let input = r#"
+            var a = 42;
+        "#
+        .trim();
+        let token_stream = Scanner::new(input).scan().unwrap();
+        let actual_ast = Parser::new(token_stream).parse();
+        let expected_ast = vec![Ok(Statement::StatementDeclaration("a".to_string(), Expression::ExprLiteral(Token::new(TokenType::Number(42.0), 1))))];
         assert_eq!(expected_ast, actual_ast);
     }
     #[test]
