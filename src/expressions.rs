@@ -2,7 +2,20 @@ use std::collections::HashMap;
 
 use crate::tokens::{Token, TokenType};
 
-pub type Environment = HashMap<String, LoxObject>;
+pub type Scope = HashMap<String, LoxObject>;
+pub struct Environment {
+    pub values: Scope,
+    pub next: Option<Box<Environment>>,
+}
+
+impl Environment {
+    pub fn new(values: Scope) -> Self {
+        Environment {
+            values,
+            next: None,
+        }
+    }
+}
 
 /// The builtin types of Lox
 #[derive(Debug, Clone)]
@@ -94,20 +107,20 @@ impl Expression {
             },
             Expression::ExprVariable(var) => match &var.token_type {
                 TokenType::Identifier(ident) => {
-                    if !scope.contains_key(ident) {
+                    if !scope.values.contains_key(ident) {
                         panic!("Invalid identifier {}", ident);
                     }
-                    (*scope.get(ident).unwrap()).clone()
+                    (*scope.values.get(ident).unwrap()).clone()
                 }
                 other => panic!("Expected identifier for variable, found {}", other)
             }
             Expression::ExprAssigment(tok, val) => match &tok.token_type {
                 TokenType::Identifier(ident) => {
-                    if !scope.contains_key(ident) {
+                    if !scope.values.contains_key(ident) {
                         panic!("Undefined variable: {}", tok);
                     }
                     let evaluated_expr = val.eval(scope);
-                    scope.insert(ident.clone(), evaluated_expr.clone());
+                    scope.values.insert(ident.clone(), evaluated_expr.clone());
                     evaluated_expr
                 }
                 other => panic!("Expected identifier in assignment, found {}", other)

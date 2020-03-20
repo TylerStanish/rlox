@@ -31,7 +31,7 @@ impl Statement {
             }
             Statement::StatementDeclaration(ident, val) => {
                 let evaluated_expr = val.eval(scope);
-                scope.insert(ident.clone(), evaluated_expr);
+                scope.values.insert(ident.clone(), evaluated_expr);
             }
             Statement::StatementBlock(statements) => {
                 for statement in statements {

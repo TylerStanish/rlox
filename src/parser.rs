@@ -185,23 +185,17 @@ impl Parser {
             ));
         }
         self.tokens.next().unwrap(); // consume )
+        // TODO move this kind of logic to a block() function and a finish_block() function
+        // to avoid having to consume the '{' before every call to block() 
         if !self.next_token_matches(&[TokenType::LeftBrace]) {
             return Err(ParsingError::new(
                 None,
-                "Expected '{' after ')' in if statement".to_string(),
+                "Expected '{' after if condition".to_string(),
                 ParsingErrorPriority::Statement,
             ));
         }
         self.tokens.next().unwrap(); // consume {
-        let body = self.statement()?;
-        if !self.next_token_matches(&[TokenType::RightBrace]) {
-            return Err(ParsingError::new(
-                None,
-                "Expected '}' after if statement body".to_string(),
-                ParsingErrorPriority::Statement,
-            ));
-        }
-        self.tokens.next().unwrap(); // consume }
+        let body = self.block()?;
         Ok(Statement::StatementIf(condition, body.into()))
     }
 
