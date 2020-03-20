@@ -3,16 +3,54 @@ use std::collections::HashMap;
 use crate::tokens::{Token, TokenType};
 
 pub type Scope = HashMap<String, LoxObject>;
+
+#[derive(Clone)]
 pub struct Environment {
     pub values: Scope,
     pub next: Option<Box<Environment>>,
 }
 
 impl Environment {
-    pub fn new(values: Scope) -> Self {
+    pub fn new() -> Self {
         Environment {
-            values,
+            values: HashMap::new(),
             next: None,
+        }
+    }
+
+    pub fn get(&self, ident: &String) -> Option<LoxObject> {
+        if self.values.contains_key(ident) {
+            Some(self.values.get(ident).unwrap().clone())
+        } else {
+            match &self.next {
+                Some(next) => next.get(ident),
+                None => None
+            }
+        }
+    }
+
+    /// Returns Ok if a variable with this name exists already and was able to assign to it
+    /// Returns Err if a variable with this name has not been declared
+    pub fn assign(&mut self, ident: &String, val: &LoxObject) -> Result<(), ()> {
+        if self.get(ident).is_none() {
+            return Err(());
+        }
+        if self.values.contains_key(ident) {
+            // update the value
+            self.values.insert(ident.clone(), val.clone());
+            return Ok(());
+        }
+        self.next.as_mut().unwrap().assign(ident, val)
+    }
+
+    /// Returns Ok if a variable with this name has not already been declared
+    /// Returns Err if a variable with this name is already declared in this scope
+    pub fn declare(&mut self, ident: &String, val: &LoxObject) -> Result<(), ()> {
+        if self.values.contains_key(ident) {
+            Err(())
+        } else {
+            self.values.insert(ident.clone(), val.clone());
+            Ok(())
         }
     }
 }
@@ -107,20 +145,14 @@ impl Expression {
             },
             Expression::ExprVariable(var) => match &var.token_type {
                 TokenType::Identifier(ident) => {
-                    if !scope.values.contains_key(ident) {
-                        panic!("Invalid identifier {}", ident);
-                    }
-                    (*scope.values.get(ident).unwrap()).clone()
+                    scope.get(ident).unwrap()
                 }
                 other => panic!("Expected identifier for variable, found {}", other)
             }
             Expression::ExprAssigment(tok, val) => match &tok.token_type {
                 TokenType::Identifier(ident) => {
-                    if !scope.values.contains_key(ident) {
-                        panic!("Undefined variable: {}", tok);
-                    }
                     let evaluated_expr = val.eval(scope);
-                    scope.values.insert(ident.clone(), evaluated_expr.clone());
+                    scope.assign(ident, &evaluated_expr).unwrap();
                     evaluated_expr
                 }
                 other => panic!("Expected identifier in assignment, found {}", other)

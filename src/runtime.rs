@@ -37,7 +37,7 @@ pub fn execute(code: &str, global_environment: &mut Environment) {
 }
 
 pub fn repl() {
-    let mut global_environment = Environment::new(HashMap::new());
+    let mut global_environment = Environment::new();
     loop {
         print!("> ");
         io::stdout().flush().unwrap();
@@ -55,6 +55,6 @@ pub fn interpreter(srcfile: &str) {
             return;
         }
     };
-    let mut global_environment = Environment::new(HashMap::new());
+    let mut global_environment = Environment::new();
     execute(&contents, &mut global_environment);
 }

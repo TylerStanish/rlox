@@ -31,9 +31,12 @@ impl Statement {
             }
             Statement::StatementDeclaration(ident, val) => {
                 let evaluated_expr = val.eval(scope);
-                scope.values.insert(ident.clone(), evaluated_expr);
+                scope.declare(ident, &evaluated_expr).unwrap();
             }
             Statement::StatementBlock(statements) => {
+                let mut new_scope = Environment::new();
+                new_scope.next = Some(scope.clone().into());
+                *scope = new_scope;
                 for statement in statements {
                     statement.eval(scope);
                 }
