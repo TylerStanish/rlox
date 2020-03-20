@@ -36,9 +36,8 @@ impl Statement {
             Statement::StatementBlock(statements) => {
                 let mut new_scope = Environment::new();
                 new_scope.next = Some(scope.clone().into());
-                *scope = new_scope;
                 for statement in statements {
-                    statement.eval(scope);
+                    statement.eval(&mut new_scope);
                 }
             }
         };
